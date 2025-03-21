@@ -1,0 +1,97 @@
+### 🚀 **Step-by-Step Setup Commands for Replit & DigitalOcean**
+
+#### **1️⃣ Upload Project Files to Replit**
+1. Create a new **Python Repl** on [Replit](https://replit.com/).
+2. Upload all project files.
+
+#### **2️⃣ Install Dependencies on Replit**
+```sh
+pip install -r requirements.txt
+pip install pycryptodome python-telegram-bot requests flask pydrive boto3
+```
+
+#### **3️⃣ Encrypt Configuration**
+```sh
+python encrypt_config.py
+```
+
+#### **4️⃣ Delete Unencrypted Configuration**
+```sh
+rm config.json
+```
+
+#### **5️⃣ Start the Bot in Replit**
+```sh
+python bot.py
+```
+
+---
+
+### 🌐 **Deploy on DigitalOcean**
+#### **1️⃣ Connect to DigitalOcean Server**
+```sh
+ssh root@your-droplet-ip
+```
+
+#### **2️⃣ Update & Install Dependencies**
+```sh
+sudo apt update && sudo apt upgrade -y
+sudo apt install python3-pip -y
+pip install -r requirements.txt
+pip install pycryptodome python-telegram-bot requests flask pydrive boto3
+```
+
+#### **3️⃣ Clone the GitHub Repository (If Pushing from Replit)**
+```sh
+git clone https://github.com/yourusername/Snipe4SoleBot.git
+cd Snipe4SoleBot
+```
+
+#### **4️⃣ Encrypt Configuration on DigitalOcean**
+```sh
+python encrypt_config.py
+rm config.json
+```
+
+#### **5️⃣ Start the Bot in the Background**
+```sh
+nohup python3 bot.py > bot.log 2>&1 &
+```
+
+#### **6️⃣ Set Up Auto-Restart Using systemd**
+```sh
+sudo nano /etc/systemd/system/tradingbot.service
+```
+Paste this inside:
+```ini
+[Unit]
+Description=AI Crypto Trading Bot
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/Snipe4SoleBot
+ExecStart=/usr/bin/python3 bot.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/tradingbot.log
+StandardError=append:/var/log/tradingbot.log
+
+[Install]
+WantedBy=multi-user.target
+```
+Save & exit (`CTRL + X`, then `Y`, then `Enter`).
+
+#### **7️⃣ Enable Auto-Restart Service**
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable tradingbot
+sudo systemctl start tradingbot
+```
+
+#### **8️⃣ Check if the Bot is Running**
+```sh
+sudo systemctl status tradingbot
+```
+
+✅ **Now, your bot will run 24/7 on DigitalOcean and auto-restart if the server reboots.**

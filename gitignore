@@ -1,0 +1,9 @@
+config.json
+config.enc
+credentials.json
+mycreds.txt
+__pycache__/
+.env
+backup_*.enc
+*.log
+.DS_Store

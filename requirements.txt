@@ -1,0 +1,11 @@
+requests
+pycryptodome
+python-telegram-bot
+tensorflow
+numpy
+pydrive
+flask
+boto3
+schedule
+matplotlib
+pandas

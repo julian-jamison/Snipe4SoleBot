@@ -1,0 +1,24 @@
+{
+    "wallets": {
+        "main": "8kTfti4dQvBTntbUAW6dPV59dgJ9HggB3Lrieu6XQRT2",
+        "backup": "GftQC1mdY57HLdXYoj9zRv3Tjh6yRimbHmKRjXbLw98E",
+        "cold_storage": "D2CoD3E6UkbErdUtQXj7BbK8VkPiEF3KqGUq6cf9PRWv",
+        "reserve_fund": "C1esW6EaKALihWAXunE2idFRj2iZ7yswoNBS1PycbrGC"
+    },
+    "profit_split": {
+        "main": 60,
+        "backup": 20,
+        "cold_storage": 10,
+        "reserve_fund": 10
+    },
+    "auto_withdrawal": {
+        "enabled": true,
+        "threshold": 5,  
+        "frequency": "daily",
+        "emergency_stop": {
+            "enabled": false,
+            "market_crash_threshold": -15,
+            "telegram_alert": true
+        }
+    }
+}

@@ -1,12 +1,12 @@
 from telegram import Bot
-import os
+from decrypt_config import config
 import json
 import schedule
 import time
 from datetime import datetime
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 TRADE_LOG_FILE = "trade_log.json"

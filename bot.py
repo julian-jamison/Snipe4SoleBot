@@ -6,8 +6,8 @@ from trade_execution import execute_trade
 from mempool_monitor import get_new_liquidity_pools
 from telegram_notifications import send_telegram_message
 
-TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-TELEGRAM_CHAT_ID = "YOUR_TELEGRAM_CHAT_ID"
+TELEGRAM_BOT_TOKEN = "7734018739:AAFQ2P5E-2cWlLGrV9GR_d-m_pEjnTlKTo0"
+TELEGRAM_CHAT_ID = "6531394402"
 
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 

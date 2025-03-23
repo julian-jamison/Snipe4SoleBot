@@ -21,8 +21,12 @@ def get_new_liquidity_pools():
 
     for dex, api_url in DEX_APIS.items():
         try:
-            response = requests.get(api_url, timeout=5)
-            data = response.json()
+        response = requests.get(api_url, timeout=5)
+    if response.status_code != 200 or not response.content.strip():
+        raise ValueError(f"Empty or invalid response from {dex}")
+    
+    data = response.json()
+
 
             for pool in data:
                 if "baseMint" in pool:

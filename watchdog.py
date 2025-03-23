@@ -1,35 +1,33 @@
-# watchdog.py
-import time
 import os
+import time
 import subprocess
+from telegram import Bot
+from decrypt_config import config
 
-CHECK_INTERVAL = 15  # seconds
-RESTART_COMMAND = ["python3", "bot.py"]
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
+CHECK_INTERVAL = 60  # seconds
 
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+def send_alert(message):
+    try:
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    except Exception as e:
+        print(f"⚠️ Telegram alert failed: {e}")
 
 def is_bot_running():
-    try:
-        with open("bot_status.json", "r") as f:
-            import json
-            data = json.load(f)
-            start_time = data.get("start_time")
-            return start_time is not None
-    except Exception:
-        return False
-
+    result = subprocess.run(["systemctl", "is-active", "--quiet", "snipe4solebot.service"])
+    return result.returncode == 0
 
 def restart_bot():
-    print("🔄 Restarting bot...")
-    subprocess.Popen(RESTART_COMMAND)
+    subprocess.run(["systemctl", "restart", "snipe4solebot.service"])
+    message = f"⚠️ Watchdog triggered a restart of Snipe4SoleBot at {time.strftime('%Y-%m-%d %H:%M:%S')} UTC."
+    send_alert(message)
+    print(message)
 
-
-def watchdog_loop():
+if __name__ == "__main__":
     while True:
         if not is_bot_running():
             restart_bot()
         time.sleep(CHECK_INTERVAL)
-
-
-if __name__ == "__main__":
-    print("👁️ Watchdog is monitoring the bot...")
-    watchdog_loop()

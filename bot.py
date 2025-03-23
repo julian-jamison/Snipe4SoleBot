@@ -3,7 +3,7 @@ import json
 from threading import Thread
 from telegram import Bot
 from trade_execution import execute_trade
-from mempool_monitor import get_new_liquidity_pools
+from mempool_monitor import check_mempool
 from telegram_notifications import send_telegram_message
 
 TELEGRAM_BOT_TOKEN = "7734018739:AAFQ2P5E-2cWlLGrV9GR_d-m_pEjnTlKTo0"

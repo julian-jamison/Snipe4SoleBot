@@ -8,11 +8,11 @@ trade_settings = config["trade_settings"]
 
 DEX_APIS = {
     "raydium": "https://api.raydium.io/v2/sdk/liquidity_pools",
-    "jupiter": "https://quote-api.jup.ag/v4/quote?inputMint=SOL",
-    "orca": "https://api.orca.so/pools",
+    # "jupiter": "https://quote-api.jup.ag/v4/quote?inputMint=SOL",
+    "orca": "https://api.orca.so/pools"
     # "serum": "https://serum-api.bonfida.com/pools",
     # "meteora": "https://api.meteora.ag/pools",
-    "pumpfun": "https://pump.fun/api/liquidity_pools"
+    # "pumpfun": "https://pump.fun/api/liquidity_pools"
 }
 
 def get_new_liquidity_pools():

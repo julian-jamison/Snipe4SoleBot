@@ -1,62 +1,76 @@
 import requests
 import json
 import os
+import logging
 from datetime import datetime
 
 LOG_FILE = "trade_log.json"
 CONFIG_FILE = "config.json"
 BACKUP_LOG_FILE = "trade_log_backup.json"
 
+# Configure logging
+logger = logging.getLogger("Snipe4SoleBot")
+logger.setLevel(logging.DEBUG)
+
+file_handler = logging.FileHandler("bot_debug.log")
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
 def fetch_price(token_address):
     """Fetches the latest price of a token from CoinGecko and other DEX APIs as a backup."""
     urls = [
         f"https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses={token_address}&vs_currencies=usd",
-        f"https://quote-api.jup.ag/v4/quote?inputMint={token_address}&outputMint=SOL"  # Jupiter API as backup
+        f"https://quote-api.jup.ag/v4/quote?inputMint={token_address}&outputMint=So11111111111111111111111111111111111111112"
     ]
-    
+
     for url in urls:
         try:
             response = requests.get(url)
             response.raise_for_status()
             data = response.json()
-            
-            # Check the response structure for valid pricing
-            price = data.get(token_address, {}).get("usd", None)
-            if price is not None:
-                return price
+
+            if "usd" in data.get(token_address, {}):
+                return data[token_address]["usd"]
+            if "data" in data:
+                quotes = data.get("data", [])
+                if quotes and isinstance(quotes, list):
+                    return quotes[0].get("outAmount", 0)
 
         except requests.exceptions.RequestException as e:
-            print(f"⚠️ Error fetching price from {url}: {e}")
+            logger.warning(f"⚠️ Error fetching price from {url}: {e}")
 
-    return None  # Return None if no valid price found
+    return None
 
 def log_trade_result(action, token, price, quantity, profit_loss, status):
     """Logs trade results to a JSON file."""
-    
     trade_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "action": action,  # "buy" or "sell"
+        "action": action,
         "token": token,
         "price": price,
         "quantity": quantity,
         "profit_loss": profit_loss,
-        "status": status  # "success" or "failed"
+        "status": status
     }
 
-    # Load existing logs if the file exists
-    if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "r") as f:
-            trade_logs = json.load(f)
-    else:
-        trade_logs = []
+    try:
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, "r") as f:
+                trade_logs = json.load(f)
+        else:
+            trade_logs = []
 
-    trade_logs.append(trade_entry)
+        trade_logs.append(trade_entry)
 
-    # Save updated logs
-    with open(LOG_FILE, "w") as f:
-        json.dump(trade_logs, f, indent=4)
+        with open(LOG_FILE, "w") as f:
+            json.dump(trade_logs, f, indent=4)
 
-    print(f"📝 Trade logged: {trade_entry}")
+        logger.info(f"📝 Trade logged: {trade_entry}")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to log trade: {e}")
 
 def load_config():
     """Loads bot configuration settings."""
@@ -64,27 +78,33 @@ def load_config():
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
     else:
-        print("⚠️ Configuration file not found!")
+        logger.warning("⚠️ Configuration file not found!")
         return {}
 
 def backup_trade_log():
     """Backs up the trade log in case of unexpected crashes."""
-    if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "r") as f:
-            trade_logs = json.load(f)
+    try:
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, "r") as f:
+                trade_logs = json.load(f)
 
-        with open(BACKUP_LOG_FILE, "w") as f:
-            json.dump(trade_logs, f, indent=4)
+            with open(BACKUP_LOG_FILE, "w") as f:
+                json.dump(trade_logs, f, indent=4)
 
-        print("✅ Trade log backup completed.")
+            logger.info("✅ Trade log backup completed.")
+    except Exception as e:
+        logger.error(f"❌ Failed to back up trade log: {e}")
 
 def restore_trade_log():
     """Restores the trade log from backup if needed."""
-    if os.path.exists(BACKUP_LOG_FILE):
-        with open(BACKUP_LOG_FILE, "r") as f:
-            trade_logs = json.load(f)
+    try:
+        if os.path.exists(BACKUP_LOG_FILE):
+            with open(BACKUP_LOG_FILE, "r") as f:
+                trade_logs = json.load(f)
 
-        with open(LOG_FILE, "w") as f:
-            json.dump(trade_logs, f, indent=4)
+            with open(LOG_FILE, "w") as f:
+                json.dump(trade_logs, f, indent=4)
 
-        print("✅ Trade log restored from backup.")
+            logger.info("✅ Trade log restored from backup.")
+    except Exception as e:
+        logger.error(f"❌ Failed to restore trade log: {e}")

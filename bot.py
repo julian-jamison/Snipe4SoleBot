@@ -101,8 +101,13 @@ def auto_sell_loop():
         time.sleep(15)
 
 
-# Start all bot threads
-Thread(target=auto_buy_loop, daemon=True).start()
-Thread(target=auto_sell_loop, daemon=True).start()
+# Start bot main loop in a separate thread
+Thread(target=bot_main_loop, daemon=True).start()
 
-send_telegram_message("✅ Snipe4SoleBot is now running with auto-sell enabled!")
+# Notify Telegram once at startup
+send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled")
+
+# Keep the main thread alive forever so the watchdog doesn't restart it
+while True:
+    time.sleep(60)
+

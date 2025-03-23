@@ -3,6 +3,7 @@ from decrypt_config import config
 import json
 import schedule
 import time
+import asyncio
 from datetime import datetime
 
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -18,7 +19,7 @@ def send_telegram_message(message):
         return
     
     try:
-        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        asyncio.run(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))  # 👈 Await this properly
         print(f"📩 Telegram message sent: {message}")
     except Exception as e:
         print(f"❌ Failed to send Telegram message: {e}")

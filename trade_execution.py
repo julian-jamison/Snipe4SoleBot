@@ -22,20 +22,35 @@ def get_new_liquidity_pools():
     for dex, api_url in DEX_APIS.items():
         try:
             response = requests.get(api_url, timeout=5)
-            data = response.json()
 
-            for pool in data:
-                if "baseMint" in pool:
-                    token_address = pool["baseMint"]
+            # ✅ Check if content exists before parsing
+            if not response.content:
+                print(f"❌ {dex} API returned empty content.")
+                continue
+
+            try:
+                data = response.json()
+            except ValueError:
+                print(f"❌ {dex} API returned invalid JSON.")
+                continue
+
+            # ✅ DEX-specific structure handling
+            if dex == "jupiter":
+                # Jupiter's response is usually not a list of pools
+                print(f"ℹ️ Jupiter response: {data}")
+                continue
+
+            if isinstance(data, list):
+                for pool in data:
+                    token = pool.get("baseMint") or pool.get("tokenMint") or pool.get("token")
                     liquidity = pool.get("liquidity", 0)
 
-                    if liquidity < trade_settings["min_liquidity"]:
-                        print(f"🚨 Skipping {token_address} on {dex} due to low liquidity ({liquidity}).")
-                        continue  # Skip pools with low liquidity
+                    if not token or liquidity < trade_settings["min_liquidity"]:
+                        continue
 
                     new_pools.append({
                         "dex": dex,
-                        "token": token_address,
+                        "token": token,
                         "liquidity": liquidity
                     })
 
@@ -43,6 +58,7 @@ def get_new_liquidity_pools():
             print(f"❌ Error fetching {dex} liquidity pools: {e}")
 
     return sorted(new_pools, key=lambda x: x["liquidity"], reverse=True)
+
 
 
 def calculate_trade_size(volatility):

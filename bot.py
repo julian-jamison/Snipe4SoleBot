@@ -2,9 +2,8 @@ import time
 import json
 from threading import Thread
 from telegram import Bot
-from trade_execution import execute_trade
+from trade_execution import execute_trade, get_new_liquidity_pools
 from mempool_monitor import check_mempool
-from trade_execution import get_new_liquidity_pools
 from telegram_notifications import send_telegram_message
 
 TELEGRAM_BOT_TOKEN = "7734018739:AAFQ2P5E-2cWlLGrV9GR_d-m_pEjnTlKTo0"
@@ -18,7 +17,6 @@ trade_count = 0
 profit = 0
 
 def save_bot_status():
-    """Saves bot status to file for tracking uptime and trade stats."""
     with open(STATUS_FILE, "w") as f:
         json.dump({
             "start_time": start_time,
@@ -27,7 +25,6 @@ def save_bot_status():
         }, f)
 
 def load_bot_status():
-    """Loads bot status from file."""
     global start_time, trade_count, profit
     try:
         with open(STATUS_FILE, "r") as f:
@@ -42,23 +39,27 @@ def load_bot_status():
 load_bot_status()
 
 def bot_main_loop():
-    """Main loop to monitor liquidity pools and execute trades."""
     global trade_count, profit
-    
+
+    send_telegram_message("✅ Snipe4SoleBot is now running!")  # ← moved inside here
+
     while True:
-        new_pools = get_new_liquidity_pools()
+        try:
+            new_pools = get_new_liquidity_pools()
+            
+            if new_pools:
+                best_pool = new_pools[0]
+                token = best_pool["token"]
+                execute_trade("buy", token)
+                trade_count += 1
+                save_bot_status()
+                send_telegram_message(f"🚀 Auto-trade executed for {token} from {best_pool['dex']}!")
+
+            time.sleep(10)
         
-        if new_pools:
-            best_pool = new_pools[0]
-            token = best_pool["token"]
-            execute_trade("buy", token)
-            trade_count += 1
-            save_bot_status()
-            send_telegram_message(f"🚀 Auto-trade executed for {token} from {best_pool['dex']}!")
-        
-        time.sleep(10)  # Adjust delay as needed
+        except Exception as e:
+            send_telegram_message(f"⚠️ Bot error: {e}")
+            time.sleep(5)
 
 # Start bot main loop in a separate thread
 Thread(target=bot_main_loop, daemon=True).start()
-
-send_telegram_message("✅ Snipe4SoleBot is now running!")

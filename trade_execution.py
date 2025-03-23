@@ -2,7 +2,8 @@ import time
 import requests
 from utils import fetch_price, log_trade_result
 from telegram_notifications import send_telegram_message
-from config import trade_settings
+from decrypt_config import config
+trade_settings = config["trade_settings"]
 
 DEX_APIS = {
     "raydium": "https://api.raydium.io/v2/sdk/liquidity_pools",

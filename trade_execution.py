@@ -19,15 +19,15 @@ def get_new_liquidity_pools():
     new_pools = []
     
     for dex, api_url in DEX_APIS.items():
-    try:
-        response = requests.get(api_url, timeout=5)
-        data = response.json()
+        try:
+            response = requests.get(api_url, timeout=5)
+            data = response.json()
 
-        for pool in data:
-            if "baseMint" in pool:
-                token_address = pool["baseMint"]
-                liquidity = pool.get("liquidity", 0)
-                new_pools.append({"dex": dex, "token": token_address, "liquidity": liquidity})
+                for pool in data:
+                    if "baseMint" in pool:
+                        token_address = pool["baseMint"]
+                        liquidity = pool.get("liquidity", 0)
+                        new_pools.append({"dex": dex, "token": token_address, "liquidity": liquidity})
 
         except Exception as e:
         print(f"❌ Error fetching {dex} liquidity pools: {e}")

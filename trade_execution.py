@@ -21,12 +21,8 @@ def get_new_liquidity_pools():
 
     for dex, api_url in DEX_APIS.items():
         try:
-        response = requests.get(api_url, timeout=5)
-    if response.status_code != 200 or not response.content.strip():
-        raise ValueError(f"Empty or invalid response from {dex}")
-    
-    data = response.json()
-
+            response = requests.get(api_url, timeout=5)
+            data = response.json()
 
             for pool in data:
                 if "baseMint" in pool:
@@ -35,7 +31,7 @@ def get_new_liquidity_pools():
 
                     if liquidity < trade_settings["min_liquidity"]:
                         print(f"🚨 Skipping {token_address} on {dex} due to low liquidity ({liquidity}).")
-                        continue
+                        continue  # Skip pools with low liquidity
 
                     new_pools.append({
                         "dex": dex,
@@ -47,6 +43,7 @@ def get_new_liquidity_pools():
             print(f"❌ Error fetching {dex} liquidity pools: {e}")
 
     return sorted(new_pools, key=lambda x: x["liquidity"], reverse=True)
+
 
 def calculate_trade_size(volatility):
     """Dynamically adjusts trade size based on market volatility."""

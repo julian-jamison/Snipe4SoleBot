@@ -9,8 +9,8 @@ DEX_APIS = {
     "raydium": "https://api.raydium.io/v2/sdk/liquidity_pools",
     "jupiter": "https://quote-api.jup.ag/v4/quote?inputMint=SOL",
     "orca": "https://api.orca.so/pools",
-    "serum": "https://serum-api.bonfida.com/pools",
-    "meteora": "https://api.meteora.ag/pools",
+    # "serum": "https://serum-api.bonfida.com/pools",
+    # "meteora": "https://api.meteora.ag/pools",
     "pumpfun": "https://pump.fun/api/liquidity_pools"
 }
 
@@ -20,7 +20,13 @@ def get_new_liquidity_pools():
     
     for dex, api_url in DEX_APIS.items():
         try:
-            response = requests.get(api_url).json()
+            try:
+    response = requests.get(api_url, timeout=5)
+    response.raise_for_status()
+    data = response.json()
+except Exception as e:
+    print(f"❌ Failed to fetch from {dex}: {e}")
+    continue
             
             for pool in response:
                 if "baseMint" in pool:

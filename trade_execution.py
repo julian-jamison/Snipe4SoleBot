@@ -14,10 +14,10 @@ BACKTEST_MODE = os.getenv("BACKTEST_MODE", "false").lower() == "true"
 MOCK_DATA_FILE = "mock_pools.json"
 
 DEX_APIS = {
-    "raydium": "https://api.raydium.io/v2/sdk/liquidity_pools",
-    "jupiter": "https://quote-api.jup.ag/v4/quote?inputMint=SOL",
-    "orca": "https://api.orca.so/pools",
-    "pumpfun": "https://pump.fun/api/liquidity_pools"
+    "jupiter": "https://stats.jup.ag/pools",  # Jupiter Aggregator - real pools endpoint
+    "pumpfun": "https://client-api.pump.fun/global",  # Updated pump.fun global config (contains new tokens)
+    "raydium": "https://api.raydium.io/pairs",  # This endpoint returns trading pairs
+    "orca": "https://api.orca.so/pools"
 }
 
 TRADE_COOLDOWN_SECONDS = trade_settings.get("trade_cooldown", 30)

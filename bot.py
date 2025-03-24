@@ -8,6 +8,7 @@ from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
 from trade_execution import calculate_trade_size, get_market_volatility
+from telegram_command_handler import run_telegram_command_listener
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -21,6 +22,8 @@ PORTFOLIO_FILE = "portfolio.json"
 start_time = time.time()
 trade_count = 0
 profit = 0
+
+Thread(target=run_telegram_command_listener, args=(TELEGRAM_BOT_TOKEN,), daemon=True).start()
 
 # ========== Portfolio Management ==========
 

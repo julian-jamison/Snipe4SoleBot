@@ -2,6 +2,7 @@ import time
 import requests
 import os
 import random
+import json
 from utils import fetch_price, log_trade_result
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
@@ -9,6 +10,7 @@ from portfolio import add_position, remove_position, get_position
 
 trade_settings = config["trade_settings"]
 BACKTEST_MODE = os.getenv("BACKTEST_MODE", "false").lower() == "true"
+MOCK_DATA_FILE = "mock_pools.json"
 
 DEX_APIS = {
     "raydium": "https://api.raydium.io/v2/sdk/liquidity_pools",
@@ -19,6 +21,9 @@ DEX_APIS = {
 
 def get_new_liquidity_pools():
     """Fetches new liquidity pools across all supported DEXs."""
+    if BACKTEST_MODE:
+        return load_mock_pools()
+
     new_pools = []
 
     for dex, api_url in DEX_APIS.items():
@@ -39,6 +44,16 @@ def get_new_liquidity_pools():
             continue
 
     return sorted(new_pools, key=lambda x: x["liquidity"], reverse=True)
+
+def load_mock_pools():
+    """Loads mock liquidity pool data for backtesting."""
+    try:
+        with open(MOCK_DATA_FILE, "r") as f:
+            mock_data = json.load(f)
+            return sorted(mock_data, key=lambda x: x["liquidity"], reverse=True)
+    except Exception as e:
+        print(f"⚠️ Could not load mock pool data: {e}")
+        return []
 
 def get_market_volatility():
     """Simulates fetching market volatility (replace with real API if needed)."""

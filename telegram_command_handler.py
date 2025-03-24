@@ -1,7 +1,6 @@
 import os
-import json
 import time
-import asyncio
+import json
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -34,8 +33,9 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove(PAUSE_FILE)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
-async def run_bot(token):
+async def run_telegram_command_listener(token):
     app = ApplicationBuilder().token(token).build()
+
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("pause", pause))
     app.add_handler(CommandHandler("resume", resume))
@@ -43,8 +43,4 @@ async def run_bot(token):
     print("🤖 Telegram command listener running...")
     await app.initialize()
     await app.start()
-    await app.updater.start_polling()
-    await app.updater.idle()
-
-def run_telegram_command_listener(token):
-    asyncio.run(run_bot(token))
+    await app.run_polling()

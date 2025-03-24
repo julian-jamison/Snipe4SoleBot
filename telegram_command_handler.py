@@ -1,3 +1,4 @@
+# telegram_command_handler.py
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import json
@@ -8,6 +9,8 @@ STATUS_FILE = "bot_status.json"
 PAUSE_FILE = "pause_flag"
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
     try:
         with open(STATUS_FILE, "r") as f:
             status = json.load(f)
@@ -19,26 +22,24 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         msg = "⚠️ Could not load bot status."
 
-    await update.message.reply_text(msg)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
 
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(PAUSE_FILE, "w") as f:
         f.write("1")
-    await update.message.reply_text("⏸ Bot paused.")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
 
 async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.path.exists(PAUSE_FILE):
         os.remove(PAUSE_FILE)
-    await update.message.reply_text("▶️ Bot resumed.")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
-async def run_telegram_command_listener(token):
+def run_telegram_command_listener(token: str):
     app = ApplicationBuilder().token(token).build()
+
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("pause", pause))
     app.add_handler(CommandHandler("resume", resume))
 
     print("🤖 Telegram command listener running...")
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    await app.updater.idle()
+    app.run_polling()  # ✅ Don't await this — it's blocking and manages its own loop

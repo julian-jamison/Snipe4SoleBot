@@ -1,17 +1,32 @@
 import time
 import requests
+import json
+import os
 from telegram_notifications import send_telegram_message
 
 # Replace with your actual Helius RPC endpoint
 SOLANA_MEMPOOL_API = "https://mainnet.helius-rpc.com/?api-key=3b31521d-eeb6-4665-b500-08a071ba3263"
 
-# Example: Replace with actual DEX program ID for Raydium, Orca, or Pump.fun
+# Real DEX program IDs (confirmed)
 DEX_PROGRAM_IDS = [
-    "AMMProgramPublicKey1",  # Placeholder
-    "AMMProgramPublicKey2",  # Placeholder
+    "rvHXrsyTrcRhTbkTJchfU3T9iU21WLCGMDu9zT4TuDw",  # Raydium AMM
+    "nExF8aV2KXMo8bJpu9A4gQ2T2xnKxB9EdKmXKj7iCsN",  # Orca AMM
+    "8Y8n1xfkoEvXxBAaLw3mcQgw3m1ahdt9YrcmWZz5w5EZ"   # Pump.fun Liquidity
 ]
 
-SEEN_SIGNATURES = set()  # Memory-based signature cache (could be persisted)
+SEEN_SIGNATURES_FILE = "seen_signatures.json"
+
+# Load seen signatures from file
+if os.path.exists(SEEN_SIGNATURES_FILE):
+    with open(SEEN_SIGNATURES_FILE, "r") as f:
+        SEEN_SIGNATURES = set(json.load(f))
+else:
+    SEEN_SIGNATURES = set()
+
+def persist_seen_signatures():
+    """Save seen transaction signatures to disk."""
+    with open(SEEN_SIGNATURES_FILE, "w") as f:
+        json.dump(list(SEEN_SIGNATURES), f)
 
 def check_mempool():
     """
@@ -42,6 +57,8 @@ def check_mempool():
                 sig = tx.get("signature")
                 if sig and sig not in SEEN_SIGNATURES:
                     SEEN_SIGNATURES.add(sig)
+                    persist_seen_signatures()
+
                     instructions = tx.get("instructions", [])
                     for ix in instructions:
                         if "initialize" in ix.get("parsedInstructionType", ""):

@@ -82,15 +82,19 @@ load_bot_status()
 # ========== Get New Liquidity Pools ==========
 
 def get_new_liquidity_pools():
+    import time
+    import requests
+
     pools = []
     dex_endpoints = [
         ("Raydium", "https://api.raydium.io/pairs"),
-        ("Jupiter", "https://quote-api.jup.ag/v6/pools")
+        ("Jupiter", "https://quote-api.jup.ag/v6/pools"),
+        ("Orca", "https://api.orca.so/allPools")
     ]
 
     for dex, url in dex_endpoints:
         try:
-            response = requests.get(url, timeout=15)
+            response = requests.get(url, timeout=20)
             response.raise_for_status()
             data = response.json()
 
@@ -105,6 +109,11 @@ def get_new_liquidity_pools():
                     if token_address:
                         pools.append({"dex": dex, "token": token_address})
 
+        except requests.exceptions.HTTPError as http_err:
+            if response.status_code == 429:
+                print(f"❌ {dex} rate limited. Backing off...")
+                time.sleep(10)
+            print(f"❌ Error fetching {dex} liquidity pools: {http_err}")
         except Exception as e:
             print(f"❌ Error fetching {dex} liquidity pools: {e}")
 

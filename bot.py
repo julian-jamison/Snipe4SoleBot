@@ -152,7 +152,7 @@ if __name__ == "__main__":
     Thread(target=bot_main_loop, daemon=True).start()
 
     try:
-        # Run Telegram command listener without asyncio.run
+        # Run the telegram listener directly (NOT in asyncio.run)
         run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
     except Exception as e:
         print(f"❌ Telegram listener crashed: {e}")

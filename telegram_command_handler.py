@@ -1,15 +1,17 @@
+from decrypt_config import config
+from telegram.ext import ApplicationBuilder, CommandHandler
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-import json
 import os
+import json
 
 WALLETS_FILE = "wallets.json"
 PORTFOLIO_FILE = "portfolio.json"
 
-app = None  # To store the Telegram app globally
+app = None
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 
 
-async def wallets_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def wallets_command(update: Update, context):
     if not update.effective_chat:
         return
 
@@ -35,16 +37,6 @@ async def wallets_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def register_wallet_command():
     global app
-    if app is None:
-        app = ApplicationBuilder().token(os.environ.get("TELEGRAM_BOT_TOKEN", "")).build()
-
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("wallets", wallets_command))
     return app
-
-
-async def run_telegram_command_listener(token):
-    global app
-    app = ApplicationBuilder().token(token).build()
-    app.add_handler(CommandHandler("wallets", wallets_command))
-    print("🤖 Telegram command listener running...")
-    await app.run_polling()

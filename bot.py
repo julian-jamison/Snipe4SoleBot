@@ -3,12 +3,12 @@ import json
 import os
 from threading import Thread
 import asyncio
+import requests
 from telegram import Bot
-from trade_execution import execute_trade, get_new_liquidity_pools, check_for_auto_sell
+from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
-from trade_execution import calculate_trade_size, get_market_volatility
 from telegram_command_handler import run_telegram_command_listener
 
 # ========== Telegram Setup ==========
@@ -79,6 +79,39 @@ def load_bot_status():
 
 load_bot_status()
 
+# ========== Get New Liquidity Pools ==========
+
+def get_new_liquidity_pools():
+    pools = []
+    dex_endpoints = [
+        ("Raydium", "https://api.raydium.io/pairs"),
+        ("Jupiter", "https://stats.jup.ag/pools"),
+        ("Orca", "https://api.orca.so/allPools"),
+        ("Pump.fun", "https://pumpapi.pump.fun/api/pairs")
+    ]
+
+    for dex, url in dex_endpoints:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if isinstance(data, list):
+                for pool_data in data:
+                    token_address = pool_data.get("mint") or pool_data.get("address") or pool_data.get("baseMint")
+                    if token_address:
+                        pools.append({"dex": dex, "token": token_address})
+            elif isinstance(data, dict):
+                for pool_id, pool_data in data.items():
+                    token_address = pool_data.get("mint") or pool_data.get("address") or pool_data.get("baseMint")
+                    if token_address:
+                        pools.append({"dex": dex, "token": token_address})
+
+        except Exception as e:
+            print(f"❌ Error fetching {dex} liquidity pools: {e}")
+
+    return pools
+
 # ========== Bot Main Loop ==========
 
 def bot_main_loop():
@@ -106,29 +139,12 @@ def bot_main_loop():
 
         time.sleep(10)
 
-# ========== Start Threads ==========
-
-async def main():
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-    Thread(target=bot_main_loop, daemon=True).start()
-    await run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
+# ========== Start Bot ==========
 
 if __name__ == "__main__":
-    # Start trading logic in background
     Thread(target=bot_main_loop, daemon=True).start()
 
-    # Start Telegram command listener safely with or without a running loop
     async def start_bot():
         await run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
 
-    try:
-        asyncio.run(start_bot())
-    except RuntimeError as e:
-        if "already running" in str(e):
-            loop = asyncio.get_event_loop()
-            loop.create_task(start_bot())
-            loop.run_forever()
-        else:
-            raise
-
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+    asyncio.run(start_bot())

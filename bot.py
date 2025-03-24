@@ -112,8 +112,8 @@ if __name__ == "__main__":
     # Start bot main loop in background
     Thread(target=bot_main_loop, daemon=True).start()
 
-    # Start Telegram bot (runs in main thread using asyncio)
-    asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    # Run Telegram command listener in the main thread (sync)
+    run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
 
     # Startup message
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")

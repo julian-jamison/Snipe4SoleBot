@@ -9,19 +9,13 @@ STATUS_FILE = "bot_status.json"
 PAUSE_FILE = "pause_flag"
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
     try:
         with open(STATUS_FILE, "r") as f:
             status = json.load(f)
         uptime = round((time.time() - status["start_time"]) / 60, 2)
-        msg = (f"📈 Bot Status:\n"
-               f"Uptime: {uptime} mins\n"
-               f"Trades: {status['trade_count']}\n"
-               f"Profit: {status['profit']} SOL")
+        msg = f"📈 Bot Status:\nUptime: {uptime} mins\nTrades: {status['trade_count']}\nProfit: {status['profit']} SOL"
     except:
         msg = "⚠️ Could not load bot status."
-
     await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
 
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -42,4 +36,4 @@ def run_telegram_command_listener(token: str):
     app.add_handler(CommandHandler("resume", resume))
 
     print("🤖 Telegram command listener running...")
-    app.run_polling()  # ✅ Don't await this — it's blocking and manages its own loop
+    app.run_polling()  # ✅ This handles the loop and blocks forever

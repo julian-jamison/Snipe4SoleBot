@@ -22,9 +22,32 @@ TRADE_SETTINGS = config["trade_settings"]
 
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
+WALLETS_FILE = "wallets.json"
 start_time = time.time()
 trade_count = 0
 profit = 0
+wallet_index = 0  # For round-robin
+
+# ========== Load Wallets ==========
+
+def load_wallets():
+    if not os.path.exists(WALLETS_FILE):
+        raise FileNotFoundError("wallets.json not found!")
+    with open(WALLETS_FILE, "r") as f:
+        return json.load(f)["wallets"]
+
+wallets = load_wallets()
+wallet_keys = list(wallets.values())
+
+# ========== Wallet Rotation ==========
+
+def get_next_wallet():
+    global wallet_index
+    if not wallet_keys:
+        raise ValueError("No wallets found for trading.")
+    wallet = wallet_keys[wallet_index % len(wallet_keys)]
+    wallet_index += 1
+    return wallet
 
 # ========== Portfolio Management ==========
 
@@ -130,15 +153,17 @@ def bot_main_loop():
             best_pool = new_pools[0]
             token = best_pool["token"]
 
+            wallet = get_next_wallet()
+
             # Auto Buy
-            price = execute_trade("buy", token)
+            price = execute_trade("buy", token, wallet=wallet)
             if price:
                 volatility = get_market_volatility()
                 quantity = calculate_trade_size(volatility)
                 update_portfolio(token, "buy", price, quantity)
                 trade_count += 1
                 save_bot_status()
-                send_telegram_message(f"🚀 Auto-buy {quantity} of {token} at ${price:.4f} from {best_pool['dex']}")
+                send_telegram_message(f"🚀 Auto-buy {quantity} of {token} at ${price:.4f} from {best_pool['dex']} using wallet {wallet}")
 
         # Check portfolio for early auto-sell
         check_for_auto_sell()

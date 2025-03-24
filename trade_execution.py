@@ -22,7 +22,7 @@ DEX_APIS = {
 
 TRADE_COOLDOWN_SECONDS = trade_settings.get("trade_cooldown", 30)
 MAX_SESSION_BUDGET_SOL = trade_settings.get("max_session_budget", 10)
-MIN_WALLET_BALANCE_SOL = trade_settings.get("min_wallet_balance", 1)
+MIN_WALLET_BALANCE_SOL = 0.1  # lowered from 1 to allow testing with low balance
 
 session_spent = 0
 last_trade_time = 0

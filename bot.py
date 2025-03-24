@@ -142,8 +142,10 @@ def bot_main_loop():
 # ========== Start Bot ==========
 
 if __name__ == "__main__":
+    # Start trading logic in background
     Thread(target=bot_main_loop, daemon=True).start()
 
+    # Start Telegram bot in main thread
     try:
         run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
     except Exception as e:

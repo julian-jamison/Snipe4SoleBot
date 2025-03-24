@@ -33,9 +33,8 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
 def run_telegram_command_listener(token):
-    app = ApplicationBuilder().token(token).build()
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("pause", pause))
-    app.add_handler(CommandHandler("resume", resume))
+    await app.initialize()
+    await app.start()
     print("🤖 Telegram command listener running...")
-    app.run_polling()
+    await app.updater.start_polling()
+    await app.updater.idle()

@@ -3,13 +3,15 @@ import json
 import os
 from threading import Thread
 import asyncio
+import random
+import requests
+
 from telegram import Bot
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
 from telegram_command_handler import run_telegram_command_listener
-import requests
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -82,12 +84,10 @@ load_bot_status()
 # ========== Get New Liquidity Pools ==========
 
 def get_new_liquidity_pools():
-    import time
-
     pools = []
     dex_endpoints = [
         ("Raydium", "https://api.raydium.io/pairs"),
-        # ("Jupiter", "https://cache.jup.ag/pools"),  # Removed for now
+        ("Jupiter", "https://stats.jup.ag/pools")
     ]
 
     for dex, url in dex_endpoints:
@@ -107,17 +107,16 @@ def get_new_liquidity_pools():
                     if token_address:
                         pools.append({"dex": dex, "token": token_address})
 
-        except requests.exceptions.HTTPError as http_err:
+        except requests.exceptions.HTTPError as e:
             if response.status_code == 429:
-                print(f"❌ {dex} rate limited. Retrying after short delay...")
-                time.sleep(5)  # Wait before next iteration
+                print("❌ Raydium rate limited. Retrying after short delay...")
+                time.sleep(random.uniform(3, 10))
             else:
-                print(f"❌ HTTP error fetching {dex}: {http_err}")
+                print(f"❌ Error fetching {dex} liquidity pools: {e}")
         except Exception as e:
             print(f"❌ Error fetching {dex} liquidity pools: {e}")
 
     return pools
-
 
 # ========== Bot Main Loop ==========
 
@@ -152,10 +151,13 @@ if __name__ == "__main__":
     Thread(target=bot_main_loop, daemon=True).start()
 
     try:
-        # Run the telegram listener directly (NOT in asyncio.run)
-        run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
-    except Exception as e:
-        print(f"❌ Telegram listener crashed: {e}")
+        asyncio.get_event_loop().run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    except RuntimeError as e:
+        if "already running" in str(e):
+            loop = asyncio.get_event_loop()
+            loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+            loop.run_forever()
+        else:
+            raise
 
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-

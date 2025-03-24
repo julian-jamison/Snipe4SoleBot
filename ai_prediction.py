@@ -77,10 +77,11 @@ def predict_market_trend(token_address):
         print("⚠️ Not enough market data available for prediction.")
         return "hold"
     
-    prediction = model.predict(market_data)
+    prediction = model.predict(market_data)[0][0]  # Extract float from array
     
     if prediction > 0.6:
-        return "buy"
-    elif prediction < 0.4:
-        return "sell"
-    return "hold"  # Default case when the prediction is neutral
+    return "buy", prediction
+elif prediction < 0.4:
+    return "sell", prediction
+return "hold", prediction
+

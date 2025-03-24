@@ -7,7 +7,7 @@ from utils import fetch_price, log_trade_result
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from portfolio import add_position, remove_position, get_position, get_all_positions
-from ai_prediction import predict_market_trend
+# from ai_prediction import predict_market_trend
 
 trade_settings = config["trade_settings"]
 BACKTEST_MODE = os.getenv("BACKTEST_MODE", "false").lower() == "true"
@@ -107,17 +107,23 @@ def execute_trade(action, token_address):
         print("💰 Max session budget reached. Skipping trade.")
         return
 
-    # AI-driven market prediction gate
-    trend, confidence = predict_market_trend(token_address)
-    if action == "buy" and trend != "buy":
-        print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping buy for {token_address}.")
-        return
-    elif action == "sell" and trend != "sell":
-        print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping sell for {token_address}.")
-        return
+    # # AI-driven market prediction gate
+    # trend, confidence = predict_market_trend(token_address)
+    # if action == "buy" and trend != "buy":
+    #     print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping buy for {token_address}.")
+    #     return
+    # elif action == "sell" and trend != "sell":
+    #     print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping sell for {token_address}.")
+    #     return
 
-    volatility = get_market_volatility()
-    quantity = calculate_trade_size(volatility) * (confidence if action == "buy" else 1)
+    # volatility = get_market_volatility()
+    # quantity = calculate_trade_size(volatility) * (confidence if action == "buy" else 1)
+
+        # Skip AI prediction temporarily
+    quantity = calculate_trade_size(volatility)
+
+
+    
 
     if BACKTEST_MODE:
         price = round(random.uniform(0.001, 0.02), 6)

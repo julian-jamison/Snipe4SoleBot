@@ -3,14 +3,22 @@ import requests
 import os
 import random
 import json
-from utils import fetch_price, log_trade_result
+from utils import fetch_price, log_trade_result, get_sol_balance
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from portfolio import add_position, remove_position, get_position
 
 trade_settings = config["trade_settings"]
+wallets = config["solana_wallets"]
+
 BACKTEST_MODE = os.getenv("BACKTEST_MODE", "false").lower() == "true"
 MOCK_DATA_FILE = "mock_pools.json"
+TRADE_COOLDOWN_SECONDS = trade_settings.get("trade_cooldown", 30)
+MAX_SESSION_BUDGET_SOL = trade_settings.get("max_session_budget", 5.0)
+MIN_WALLET_BALANCE_SOL = trade_settings.get("min_wallet_balance", 0.1)
+
+last_trade_time = 0
+session_spent_sol = 0
 
 DEX_APIS = {
     "raydium": "https://api.raydium.io/v2/sdk/liquidity_pools",
@@ -70,19 +78,39 @@ def calculate_trade_size(volatility):
 
 def execute_trade(action, token_address):
     """Executes a trade (buy/sell) based on the given action and market conditions."""
+    global last_trade_time, session_spent_sol
+
+    now = time.time()
+    if now - last_trade_time < TRADE_COOLDOWN_SECONDS:
+        print("⏳ Trade skipped due to cooldown.")
+        return
+
     volatility = get_market_volatility()
     quantity = calculate_trade_size(volatility)
 
     if BACKTEST_MODE:
-        price = round(random.uniform(0.001, 0.02), 6)  # Simulate price
+        price = round(random.uniform(0.001, 0.02), 6)
         print(f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}")
         send_telegram_message(f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}")
         log_trade_result(action, token_address, price, quantity, 0, "simulated")
+        last_trade_time = now
         return price
 
     price = fetch_price(token_address)
     if price is None:
         print("❌ Could not fetch price. Trade aborted.")
+        return
+
+    # Budget cap check
+    estimated_cost = price * quantity
+    if session_spent_sol + estimated_cost > MAX_SESSION_BUDGET_SOL:
+        print("💰 Trade skipped due to session budget cap.")
+        return
+
+    # Wallet balance check (uses first wallet)
+    balance = get_sol_balance(wallets["wallet_1"], config["api_keys"]["solana_rpc_url"])
+    if balance is None or balance < MIN_WALLET_BALANCE_SOL:
+        print(f"⚠️ Insufficient wallet balance: {balance} SOL")
         return
 
     stop_loss = max(trade_settings["dynamic_risk_management"]["min_stop_loss"],
@@ -95,6 +123,7 @@ def execute_trade(action, token_address):
         send_telegram_message(f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})")
         log_trade_result("buy", token_address, price, quantity, 0, "success")
         add_position(token_address, quantity, price, "dex")
+        session_spent_sol += estimated_cost
 
     elif action == "sell":
         position = get_position(token_address)
@@ -105,5 +134,6 @@ def execute_trade(action, token_address):
         log_trade_result("sell", token_address, price, quantity, profit_loss, "success")
         remove_position(token_address)
 
+    last_trade_time = now
     time.sleep(2)
     return price

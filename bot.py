@@ -3,13 +3,13 @@ import json
 import os
 from threading import Thread
 import asyncio
-import requests
 from telegram import Bot
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
 from telegram_command_handler import run_telegram_command_listener
+import requests
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -85,14 +85,12 @@ def get_new_liquidity_pools():
     pools = []
     dex_endpoints = [
         ("Raydium", "https://api.raydium.io/pairs"),
-        ("Jupiter", "https://stats.jup.ag/pools"),
-        ("Orca", "https://api.orca.so/allPools"),
-        ("Pump.fun", "https://pumpapi.pump.fun/api/pairs")
+        ("Jupiter", "https://quote-api.jup.ag/v6/pools")
     ]
 
     for dex, url in dex_endpoints:
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=15)
             response.raise_for_status()
             data = response.json()
 
@@ -139,17 +137,19 @@ def bot_main_loop():
 
         time.sleep(10)
 
-# ========== Start Bot ==========
+# ========== Start Threads ==========
 
 if __name__ == "__main__":
-    # Start trading logic in background
     Thread(target=bot_main_loop, daemon=True).start()
 
-    # Start Telegram bot in main thread
     try:
-        run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
-    except Exception as e:
-        print(f"❌ Error running Telegram listener: {e}")
+        asyncio.get_event_loop().run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    except RuntimeError as e:
+        if "already running" in str(e):
+            loop = asyncio.get_event_loop()
+            loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+            loop.run_forever()
+        else:
+            raise
 
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-

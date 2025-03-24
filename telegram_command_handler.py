@@ -1,15 +1,13 @@
-import os
-import time
-import json
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import json
+import os
+import time
 
 STATUS_FILE = "bot_status.json"
 PAUSE_FILE = "pause_flag"
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
     try:
         with open(STATUS_FILE, "r") as f:
             status = json.load(f)
@@ -21,24 +19,26 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         msg = "⚠️ Could not load bot status."
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
+    await update.message.reply_text(msg)
 
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(PAUSE_FILE, "w") as f:
         f.write("1")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
+    await update.message.reply_text("⏸ Bot paused.")
 
 async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.path.exists(PAUSE_FILE):
         os.remove(PAUSE_FILE)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
+    await update.message.reply_text("▶️ Bot resumed.")
 
-def run_telegram_command_listener(token):
+async def run_telegram_command_listener(token):
     app = ApplicationBuilder().token(token).build()
-
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("pause", pause))
     app.add_handler(CommandHandler("resume", resume))
 
     print("🤖 Telegram command listener running...")
-    app.run_polling()  # <- No "await", no "asyncio.run()"
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()

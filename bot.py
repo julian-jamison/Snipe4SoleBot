@@ -3,7 +3,7 @@ import json
 import os
 from threading import Thread
 from telegram import Bot
-from trade_execution import execute_trade, get_new_liquidity_pools
+from trade_execution import execute_trade, get_new_liquidity_pools, check_for_auto_sell
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
@@ -102,25 +102,8 @@ def bot_main_loop():
                 save_bot_status()
                 send_telegram_message(f"🚀 Auto-buy {quantity} of {token} at ${price:.4f} from {best_pool['dex']}")
 
-            # Auto Sell Logic
-            portfolio = load_portfolio()
-            if token in portfolio:
-                avg_price = portfolio[token]["avg_price"]
-                current_price = price
-                if not current_price:
-                    continue
-
-                pnl = ((current_price - avg_price) / avg_price) * 100
-
-                if pnl >= TRADE_SETTINGS["profit_target"] or pnl <= TRADE_SETTINGS["stop_loss"]:
-                    sell_price = execute_trade("sell", token)
-                    if sell_price:
-                        update_portfolio(token, "sell", sell_price, quantity)
-                        trade_count += 1
-                        profit += (sell_price - avg_price) * quantity
-                        save_bot_status()
-                        log_trade_result("sell", token, sell_price, quantity, (sell_price - avg_price) * quantity, "success")
-                        send_telegram_message(f"📤 Auto-sell {quantity} of {token} at ${sell_price:.4f} | PNL: {pnl:.2f}%")
+        # Auto Sell Logic (for all tokens in portfolio)
+        check_for_auto_sell()
 
         time.sleep(10)
 

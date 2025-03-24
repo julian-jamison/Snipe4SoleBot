@@ -120,8 +120,8 @@ def execute_trade(action, token_address):
     # quantity = calculate_trade_size(volatility) * (confidence if action == "buy" else 1)
 
         # Skip AI prediction temporarily
-  volatility = get_market_volatility()
-  quantity = calculate_trade_size(volatility)
+    volatility = get_market_volatility()
+    quantity = calculate_trade_size(volatility)
 
 
     

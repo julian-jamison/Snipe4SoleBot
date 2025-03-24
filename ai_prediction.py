@@ -75,13 +75,14 @@ def predict_market_trend(token_address):
     market_data = get_market_features(token_address)
     if market_data is None:
         print("⚠️ Not enough market data available for prediction.")
-        return "hold"
+        return "hold", 0.5
     
-    prediction = model.predict(market_data)[0][0]  # Extract float from array
-    
+    prediction = model.predict(market_data)[0][0]
+
     if prediction > 0.6:
-    return "buy", prediction
-elif prediction < 0.4:
-    return "sell", prediction
-return "hold", prediction
+        return "buy", prediction
+    elif prediction < 0.4:
+        return "sell", prediction
+    else:
+        return "hold", prediction
 

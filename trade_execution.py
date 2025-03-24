@@ -6,7 +6,7 @@ import json
 from utils import fetch_price, log_trade_result
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
-from portfolio import add_position, remove_position, get_position
+from portfolio import add_position, remove_position, get_position, get_all_positions
 from ai_prediction import predict_market_trend
 
 trade_settings = config["trade_settings"]
@@ -21,7 +21,7 @@ DEX_APIS = {
 }
 
 TRADE_COOLDOWN_SECONDS = trade_settings.get("trade_cooldown", 30)
-MAX_SESSION_BUDGET_SOL = trade_settings.get("max_session_budget", 15)
+MAX_SESSION_BUDGET_SOL = trade_settings.get("max_session_budget", 10)
 MIN_WALLET_BALANCE_SOL = 0.1  # lowered from 1 to allow testing with low balance
 
 session_spent = 0
@@ -109,12 +109,12 @@ def execute_trade(action, token_address):
 
     # AI-driven market prediction gate
     trend, confidence = predict_market_trend(token_address)
-if action == "buy" and trend != "buy":
-    print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping buy for {token_address}.")
-    return
-elif action == "sell" and trend != "sell":
-    print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping sell for {token_address}.")
-    return
+    if action == "buy" and trend != "buy":
+        print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping buy for {token_address}.")
+        return
+    elif action == "sell" and trend != "sell":
+        print(f"🤖 AI suggests to {trend} (confidence: {confidence:.2f}). Skipping sell for {token_address}.")
+        return
 
     volatility = get_market_volatility()
     quantity = calculate_trade_size(volatility) * (confidence if action == "buy" else 1)
@@ -160,7 +160,6 @@ elif action == "sell" and trend != "sell":
 
 def check_for_auto_sell():
     """Checks portfolio and performs auto-sell if price hits target or stop-loss."""
-    portfolio = config.get("solana_wallets", {})
     for token in get_all_positions():
         position = get_position(token)
         if not position:

@@ -151,10 +151,11 @@ def get_new_liquidity_pools():
 # ========== Profit Distribution ==========
 
 def distribute_profit(amount):
+    summary_lines = [f"💸 Distributing total profit of {amount:.4f} SOL:"]
     for wallet, percent in profit_split.items():
         share = (percent / 100) * amount
-        print(f"💰 Distributing {share:.4f} SOL to {wallet} ({percent}%)")
-        send_telegram_message(f"💸 Profit share: {share:.4f} SOL to {wallet} ({percent}%)")
+        summary_lines.append(f"- {wallet}: {share:.4f} SOL ({percent}%)")
+    send_telegram_message("\n".join(summary_lines))
 
 # ========== Auto Withdrawals ==========
 

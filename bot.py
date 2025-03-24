@@ -114,9 +114,14 @@ if __name__ == "__main__":
 
     # Start Telegram bot (runs in main thread using asyncio)
     try:
-        asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+        asyncio.get_event_loop().run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
-        print(f"❌ Telegram listener failed to start: {e}")
+        if "already running" in str(e):
+            loop = asyncio.get_event_loop()
+            loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+            loop.run_forever()
+        else:
+            raise
 
     # Startup message
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")

@@ -1,0 +1,5 @@
+[
+  { "dex": "raydium", "token": "MockTokenA", "liquidity": 5000 },
+  { "dex": "pumpfun", "token": "MockTokenB", "liquidity": 2000 },
+  { "dex": "orca", "token": "MockTokenC", "liquidity": 1500 }
+]

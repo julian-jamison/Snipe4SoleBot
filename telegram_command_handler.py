@@ -1,39 +1,50 @@
-# telegram_command_handler.py
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import json
 import os
-import time
 
-STATUS_FILE = "bot_status.json"
-PAUSE_FILE = "pause_flag"
+WALLETS_FILE = "wallets.json"
+PORTFOLIO_FILE = "portfolio.json"
 
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        with open(STATUS_FILE, "r") as f:
-            status = json.load(f)
-        uptime = round((time.time() - status["start_time"]) / 60, 2)
-        msg = f"📈 Bot Status:\nUptime: {uptime} mins\nTrades: {status['trade_count']}\nProfit: {status['profit']} SOL"
-    except:
-        msg = "⚠️ Could not load bot status."
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
+app = None  # To store the Telegram app globally
 
-async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with open(PAUSE_FILE, "w") as f:
-        f.write("1")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
 
-async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if os.path.exists(PAUSE_FILE):
-        os.remove(PAUSE_FILE)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
+async def wallets_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
 
-def run_telegram_command_listener(token: str):
+    message = "💼 Wallet Balances:\n"
+    portfolio = {}
+
+    if os.path.exists(PORTFOLIO_FILE):
+        with open(PORTFOLIO_FILE, "r") as f:
+            portfolio = json.load(f)
+
+    if os.path.exists(WALLETS_FILE):
+        with open(WALLETS_FILE, "r") as f:
+            wallet_config = json.load(f)
+        for name, address in wallet_config["wallets"].items():
+            tokens = portfolio.get(address, {})
+            total = sum(t["quantity"] for t in tokens.values()) if tokens else 0
+            message += f"- {name} ({address[:6]}...): {total:.4f} tokens across {len(tokens)} assets\n"
+    else:
+        message += "⚠️ wallets.json not found."
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+
+def register_wallet_command():
+    global app
+    if app is None:
+        app = ApplicationBuilder().token(os.environ.get("TELEGRAM_BOT_TOKEN", "")).build()
+
+    app.add_handler(CommandHandler("wallets", wallets_command))
+    return app
+
+
+async def run_telegram_command_listener(token):
+    global app
     app = ApplicationBuilder().token(token).build()
-
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("pause", pause))
-    app.add_handler(CommandHandler("resume", resume))
-
+    app.add_handler(CommandHandler("wallets", wallets_command))
     print("🤖 Telegram command listener running...")
-    app.run_polling()  # ✅ This handles the loop and blocks forever
+    await app.run_polling()

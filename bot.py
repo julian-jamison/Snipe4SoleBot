@@ -25,14 +25,6 @@ profit = 0
 
 import asyncio
 
-if __name__ == "__main__":
-    # Start bot main loop in background
-    Thread(target=bot_main_loop, daemon=True).start()
-
-    # Start Telegram bot (runs in main thread using asyncio)
-    asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-
-
 # ========== Portfolio Management ==========
 
 def load_portfolio():
@@ -112,6 +104,13 @@ def bot_main_loop():
 
         # Check portfolio for early auto-sell
         check_for_auto_sell()
+
+    if __name__ == "__main__":
+    # Start bot main loop in background
+    Thread(target=bot_main_loop, daemon=True).start()
+
+    # Start Telegram bot (runs in main thread using asyncio)
+    asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
 
         time.sleep(10)
 

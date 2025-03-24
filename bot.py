@@ -23,7 +23,15 @@ start_time = time.time()
 trade_count = 0
 profit = 0
 
-Thread(target=run_telegram_command_listener, args=(TELEGRAM_BOT_TOKEN,), daemon=True).start()
+import asyncio
+
+if __name__ == "__main__":
+    # Start bot main loop in background
+    Thread(target=bot_main_loop, daemon=True).start()
+
+    # Start Telegram bot (runs in main thread using asyncio)
+    asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+
 
 # ========== Portfolio Management ==========
 

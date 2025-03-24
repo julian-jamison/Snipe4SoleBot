@@ -110,10 +110,11 @@ def bot_main_loop():
                 save_bot_status()
                 send_telegram_message(f"🚀 Auto-buy {quantity} of {token} at ${price:.4f} from {best_pool['dex']}")
 
-        # Auto Sell Logic (for all tokens in portfolio)
-        check_for_auto_sell()
+            # Auto Sell Check
+            check_for_auto_sell()
 
         time.sleep(10)
+
 
 # ========== Start Thread ==========
 Thread(target=bot_main_loop, daemon=True).start()

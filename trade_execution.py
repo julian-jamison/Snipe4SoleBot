@@ -15,9 +15,9 @@ MOCK_DATA_FILE = "mock_pools.json"
 
 DEX_APIS = {
     "jupiter": "https://stats.jup.ag/pools",  # Jupiter Aggregator - real pools endpoint
-    "pumpfun": "https://client-api.pump.fun/global",  # Updated pump.fun global config (contains new tokens)
+    "pumpfun": "https://pumpapi.pump.fun/api/pairs",  # Updated pump.fun global config (contains new tokens)
     "raydium": "https://api.raydium.io/pairs",  # This endpoint returns trading pairs
-    "orca": "https://api.orca.so/pools"
+    "orca": "https://api.orca.so/allPools"
 }
 
 TRADE_COOLDOWN_SECONDS = trade_settings.get("trade_cooldown", 30)

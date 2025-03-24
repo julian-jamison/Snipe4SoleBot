@@ -33,7 +33,7 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove(PAUSE_FILE)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
-async def run_telegram_command_listener(token):
+def run_telegram_command_listener(token):
     app = ApplicationBuilder().token(token).build()
 
     app.add_handler(CommandHandler("status", status))
@@ -41,6 +41,4 @@ async def run_telegram_command_listener(token):
     app.add_handler(CommandHandler("resume", resume))
 
     print("🤖 Telegram command listener running...")
-    await app.initialize()
-    await app.start()
-    await app.run_polling()
+    app.run_polling()  # <- No "await", no "asyncio.run()"

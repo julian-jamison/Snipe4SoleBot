@@ -152,14 +152,6 @@ def bot_main_loop():
 if __name__ == "__main__":
     Thread(target=bot_main_loop, daemon=True).start()
 
-    try:
-        asyncio.get_event_loop().run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-    except RuntimeError as e:
-        if "already running" in str(e):
-            loop = asyncio.get_event_loop()
-            loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-            loop.run_forever()
-        else:
-            raise
+    asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
 
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")

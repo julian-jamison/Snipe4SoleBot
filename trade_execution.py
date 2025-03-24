@@ -21,7 +21,7 @@ DEX_APIS = {
 }
 
 TRADE_COOLDOWN_SECONDS = trade_settings.get("trade_cooldown", 30)
-MAX_SESSION_BUDGET_SOL = trade_settings.get("max_session_budget", 10)
+MAX_SESSION_BUDGET_SOL = trade_settings.get("max_session_budget", 15)
 MIN_WALLET_BALANCE_SOL = 0.1  # lowered from 1 to allow testing with low balance
 
 session_spent = 0
@@ -157,3 +157,25 @@ def execute_trade(action, token_address):
     last_trade_time = time.time()
     time.sleep(2)
     return price
+
+def check_for_auto_sell():
+    """Checks portfolio and performs auto-sell if price hits target or stop-loss."""
+    portfolio = config.get("solana_wallets", {})
+    for token in get_all_positions():
+        position = get_position(token)
+        if not position:
+            continue
+
+        current_price = fetch_price(token)
+        if current_price is None:
+            continue
+
+        entry_price = position["price"]
+        profit_pct = ((current_price - entry_price) / entry_price) * 100
+
+        if profit_pct >= trade_settings["profit_target"]:
+            print(f"💰 Profit target hit for {token}. Auto-selling.")
+            execute_trade("sell", token)
+        elif profit_pct <= trade_settings["stop_loss"]:
+            print(f"🔻 Stop-loss triggered for {token}. Auto-selling.")
+            execute_trade("sell", token)

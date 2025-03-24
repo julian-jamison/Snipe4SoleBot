@@ -136,7 +136,12 @@ def execute_trade(action, token_address):
 
     elif action == "sell":
         position = get_position(token_address)
-        entry_price = position["price"] if position else price
+        if not position:
+            print("⚠️ No existing position found for sell.")
+            return
+
+        entry_price = position["price"]
+        quantity = position["quantity"]
         profit_loss = round((price - entry_price) * quantity, 6)
         print(f"📤 Selling {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
         send_telegram_message(f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
@@ -147,3 +152,24 @@ def execute_trade(action, token_address):
     last_trade_time = time.time()
     time.sleep(2)
     return price
+
+def evaluate_positions_for_auto_sell():
+    """Automatically checks if any positions hit profit or stop-loss thresholds and sells."""
+    from portfolio import get_all_positions
+
+    all_positions = get_all_positions()
+    for token, details in all_positions.items():
+        entry_price = details["price"]
+        quantity = details["quantity"]
+        current_price = fetch_price(token)
+
+        if not current_price:
+            continue
+
+        price_change_pct = ((current_price - entry_price) / entry_price) * 100
+        if price_change_pct >= trade_settings["profit_target"]:
+            print(f"📈 Profit target hit for {token}, auto-selling...")
+            execute_trade("sell", token)
+        elif price_change_pct <= trade_settings["stop_loss"]:
+            print(f"📉 Stop-loss hit for {token}, auto-selling...")
+            execute_trade("sell", token)

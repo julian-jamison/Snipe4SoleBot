@@ -61,23 +61,27 @@ def save_portfolio(portfolio):
     with open(PORTFOLIO_FILE, "w") as f:
         json.dump(portfolio, f, indent=2)
 
-def update_portfolio(token, action, price, quantity):
+def update_portfolio(token, action, price, quantity, wallet):
     portfolio = load_portfolio()
-    if token not in portfolio:
-        portfolio[token] = {"avg_price": 0, "quantity": 0}
+    if wallet not in portfolio:
+        portfolio[wallet] = {}
+    if token not in portfolio[wallet]:
+        portfolio[wallet][token] = {"avg_price": 0, "quantity": 0}
 
     if action == "buy":
-        prev_quantity = portfolio[token]["quantity"]
-        prev_price = portfolio[token]["avg_price"]
+        prev_quantity = portfolio[wallet][token]["quantity"]
+        prev_price = portfolio[wallet][token]["avg_price"]
         new_total_qty = prev_quantity + quantity
         if new_total_qty > 0:
-            portfolio[token]["avg_price"] = ((prev_quantity * prev_price) + (quantity * price)) / new_total_qty
-        portfolio[token]["quantity"] = new_total_qty
+            portfolio[wallet][token]["avg_price"] = ((prev_quantity * prev_price) + (quantity * price)) / new_total_qty
+        portfolio[wallet][token]["quantity"] = new_total_qty
 
     elif action == "sell":
-        portfolio[token]["quantity"] -= quantity
-        if portfolio[token]["quantity"] <= 0:
-            del portfolio[token]  # Fully sold
+        portfolio[wallet][token]["quantity"] -= quantity
+        if portfolio[wallet][token]["quantity"] <= 0:
+            del portfolio[wallet][token]  # Fully sold
+        if not portfolio[wallet]:
+            del portfolio[wallet]  # Remove wallet if empty
 
     save_portfolio(portfolio)
 
@@ -160,7 +164,7 @@ def bot_main_loop():
             if price:
                 volatility = get_market_volatility()
                 quantity = calculate_trade_size(volatility)
-                update_portfolio(token, "buy", price, quantity)
+                update_portfolio(token, "buy", price, quantity, wallet)
                 trade_count += 1
                 save_bot_status()
                 send_telegram_message(f"🚀 Auto-buy {quantity} of {token} at ${price:.4f} from {best_pool['dex']} using wallet {wallet}")

@@ -30,14 +30,17 @@ wallet_index = 0  # For round-robin
 
 # ========== Load Wallets ==========
 
-def load_wallets():
+def load_wallets_config():
     if not os.path.exists(WALLETS_FILE):
         raise FileNotFoundError("wallets.json not found!")
     with open(WALLETS_FILE, "r") as f:
-        return json.load(f)["wallets"]
+        return json.load(f)
 
-wallets = load_wallets()
+wallet_config = load_wallets_config()
+wallets = wallet_config["wallets"]
 wallet_keys = list(wallets.values())
+profit_split = wallet_config.get("profit_split", {})
+auto_withdrawal_cfg = wallet_config.get("auto_withdrawal", {})
 
 # ========== Wallet Rotation ==========
 
@@ -145,6 +148,32 @@ def get_new_liquidity_pools():
 
     return pools
 
+# ========== Profit Distribution ==========
+
+def distribute_profit(amount):
+    for wallet, percent in profit_split.items():
+        share = (percent / 100) * amount
+        print(f"💰 Distributing {share:.4f} SOL to {wallet} ({percent}%)")
+        send_telegram_message(f"💸 Profit share: {share:.4f} SOL to {wallet} ({percent}%)")
+
+# ========== Auto Withdrawals ==========
+
+def check_auto_withdrawal():
+    if not auto_withdrawal_cfg.get("enabled"):
+        return
+
+    if auto_withdrawal_cfg.get("emergency_stop", {}).get("enabled"):
+        crash_threshold = auto_withdrawal_cfg["emergency_stop"].get("market_crash_threshold", -15)
+        if profit < crash_threshold:
+            if auto_withdrawal_cfg["emergency_stop"].get("telegram_alert"):
+                send_telegram_message("🚨 Emergency Stop: Market crash threshold triggered. Withdrawals paused.")
+            return
+
+    threshold = auto_withdrawal_cfg.get("threshold", 0)
+    if profit >= threshold:
+        send_telegram_message(f"💸 Profit threshold of {threshold} SOL reached. Triggering auto-withdrawal!")
+        distribute_profit(profit)
+
 # ========== Bot Main Loop ==========
 
 def bot_main_loop():
@@ -171,6 +200,9 @@ def bot_main_loop():
 
         # Check portfolio for early auto-sell
         check_for_auto_sell()
+
+        # Check profit threshold for auto-withdrawal
+        check_auto_withdrawal()
 
         time.sleep(10)
 

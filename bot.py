@@ -2,6 +2,7 @@ import time
 import json
 import os
 from threading import Thread
+import asyncio
 from telegram import Bot
 from trade_execution import execute_trade, get_new_liquidity_pools, check_for_auto_sell
 from telegram_notifications import send_telegram_message
@@ -22,8 +23,6 @@ PORTFOLIO_FILE = "portfolio.json"
 start_time = time.time()
 trade_count = 0
 profit = 0
-
-import asyncio
 
 # ========== Portfolio Management ==========
 
@@ -105,15 +104,16 @@ def bot_main_loop():
         # Check portfolio for early auto-sell
         check_for_auto_sell()
 
-    if __name__ == "__main__":
+        time.sleep(10)
+
+# ========== Start Threads ==========
+
+if __name__ == "__main__":
     # Start bot main loop in background
     Thread(target=bot_main_loop, daemon=True).start()
 
     # Start Telegram bot (runs in main thread using asyncio)
     asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
 
-        time.sleep(10)
-
-# ========== Start Thread ==========
-Thread(target=bot_main_loop, daemon=True).start()
-send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+    # Startup message
+    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")

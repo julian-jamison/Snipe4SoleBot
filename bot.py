@@ -88,7 +88,7 @@ def get_new_liquidity_pools():
     pools = []
     dex_endpoints = [
         ("Raydium", "https://api.raydium.io/pairs"),
-        ("Jupiter", "https://quote-api.jup.ag/v6/pools"),
+        ("Jupiter", "https://cache.jup.ag/pools"),
         ("Orca", "https://api.orca.so/allPools")
     ]
 
@@ -111,13 +111,14 @@ def get_new_liquidity_pools():
 
         except requests.exceptions.HTTPError as http_err:
             if response.status_code == 429:
-                print(f"❌ {dex} rate limited. Backing off...")
+                print(f"❌ {dex} rate limited. Retrying after short delay...")
                 time.sleep(10)
             print(f"❌ Error fetching {dex} liquidity pools: {http_err}")
         except Exception as e:
             print(f"❌ Error fetching {dex} liquidity pools: {e}")
 
     return pools
+
 
 # ========== Bot Main Loop ==========
 

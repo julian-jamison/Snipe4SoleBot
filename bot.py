@@ -144,7 +144,10 @@ def bot_main_loop():
 if __name__ == "__main__":
     Thread(target=bot_main_loop, daemon=True).start()
 
-    async def start_bot():
-        await run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
+    try:
+        run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
+    except Exception as e:
+        print(f"❌ Error running Telegram listener: {e}")
 
-    asyncio.run(start_bot())
+    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+

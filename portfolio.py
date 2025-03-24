@@ -1,51 +1,61 @@
 import json
 import os
+from datetime import datetime
 
 PORTFOLIO_FILE = "portfolio.json"
 
+
 def load_portfolio():
-    """Loads portfolio from JSON file or returns an empty structure."""
     if os.path.exists(PORTFOLIO_FILE):
         with open(PORTFOLIO_FILE, "r") as f:
             return json.load(f)
     return {}
 
+
 def save_portfolio(portfolio):
-    """Saves portfolio dictionary to JSON."""
     with open(PORTFOLIO_FILE, "w") as f:
         json.dump(portfolio, f, indent=4)
 
-def add_position(token, quantity, price, dex):
-    """Adds a new token position or updates existing one."""
-    portfolio = load_portfolio()
 
-    if token in portfolio:
-        # If already exists, average entry price and add quantity
-        old = portfolio[token]
-        total_quantity = old["quantity"] + quantity
-        avg_price = ((old["price"] * old["quantity"]) + (price * quantity)) / total_quantity
-        portfolio[token]["price"] = round(avg_price, 6)
-        portfolio[token]["quantity"] = total_quantity
+def update_portfolio(token, action, price, quantity):
+    portfolio = load_portfolio()
+    token_data = portfolio.get(token, {"quantity": 0, "average_price": 0})
+
+    if action == "buy":
+        total_cost = token_data["quantity"] * token_data["average_price"] + quantity * price
+        token_data["quantity"] += quantity
+        token_data["average_price"] = total_cost / token_data["quantity"]
+
+    elif action == "sell":
+        token_data["quantity"] -= quantity
+        if token_data["quantity"] <= 0:
+            portfolio.pop(token, None)
+        else:
+            portfolio[token] = token_data
+
     else:
-        portfolio[token] = {
-            "quantity": quantity,
-            "price": round(price, 6),
-            "dex": dex
-        }
+        portfolio[token] = token_data
 
     save_portfolio(portfolio)
 
-def remove_position(token):
-    """Removes token from portfolio after selling."""
+
+def calculate_portfolio_value(price_lookup_func):
     portfolio = load_portfolio()
-    if token in portfolio:
-        del portfolio[token]
-        save_portfolio(portfolio)
+    total_value = 0
 
-def get_position(token):
-    """Retrieves a single token's data."""
-    return load_portfolio().get(token)
+    for token, data in portfolio.items():
+        price = price_lookup_func(token)
+        if price:
+            total_value += data["quantity"] * price
 
-def get_all_positions():
-    """Returns the entire portfolio."""
-    return load_portfolio()
+    return total_value
+
+
+def get_token_quantity(token):
+    portfolio = load_portfolio()
+    return portfolio.get(token, {}).get("quantity", 0)
+
+
+def get_token_average_price(token):
+    portfolio = load_portfolio()
+    return portfolio.get(token, {}).get("average_price", 0)

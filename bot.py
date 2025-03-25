@@ -5,9 +5,8 @@ from threading import Thread
 import asyncio
 import random
 import requests
+
 import nest_asyncio
-
-
 from telegram import Bot
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
 from telegram_notifications import send_telegram_message
@@ -214,12 +213,11 @@ def bot_main_loop():
 if __name__ == "__main__":
     Thread(target=bot_main_loop, daemon=True).start()
 
-import nest_asyncio
-nest_asyncio.apply()
+    import nest_asyncio
+    nest_asyncio.apply()
 
-loop = asyncio.get_event_loop()
-loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-loop.run_forever()
-
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    loop.run_forever()
 
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")

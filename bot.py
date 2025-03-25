@@ -239,10 +239,6 @@ def bot_main_loop():
 # ========== Start Threads ===========
 
 if __name__ == "__main__":
-    # Clear startup lock if it exists
-    if os.path.exists(STARTUP_LOCK_FILE):
-        os.remove(STARTUP_LOCK_FILE)
-
     send_startup_message_once()
 
     Thread(target=bot_main_loop, daemon=True).start()

@@ -30,6 +30,9 @@ trade_count = 0
 profit = 0
 wallet_index = 0  # For round-robin
 
+# Optional token filter
+ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
+
 # ========== Load Wallets ===========
 
 def load_wallets_config():
@@ -44,7 +47,7 @@ wallet_keys = list(wallets.values())
 profit_split = wallet_config.get("profit_split", {})
 auto_withdrawal_cfg = wallet_config.get("auto_withdrawal", {})
 
-# ========== Wallet Rotation ==========
+# ========== Wallet Rotation ===========
 
 def get_next_wallet():
     global wallet_index
@@ -54,7 +57,7 @@ def get_next_wallet():
     wallet_index += 1
     return wallet
 
-# ========== Portfolio Management ==========
+# ========== Portfolio Management ===========
 
 def load_portfolio():
     if not os.path.exists(PORTFOLIO_FILE):
@@ -90,7 +93,7 @@ def update_portfolio(token, action, price, quantity, wallet):
 
     save_portfolio(portfolio)
 
-# ========== Status Persistence ==========
+# ========== Status Persistence ===========
 
 def save_bot_status():
     with open(STATUS_FILE, "w") as f:
@@ -113,44 +116,60 @@ def load_bot_status():
 
 load_bot_status()
 
-# ========== Get New Liquidity Pools ==========
+# ========== Get New Liquidity Pools ===========
 
 def get_new_liquidity_pools():
     pools = []
-    dex_endpoints = [
-        ("Raydium", "https://api.raydium.io/pairs"),
-        ("Jupiter", "https://stats.jup.ag/pools")
-    ]
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-    for dex, url in dex_endpoints:
-        try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+    # Raydium API
+    try:
+        response = requests.get("https://api.raydium.io/v2/ammV3/markets", timeout=10, headers=headers)
+        response.raise_for_status()
+        raydium_data = response.json()
+        for pool_data in raydium_data:
+            token_address = pool_data.get("baseMint") or pool_data.get("mint") or pool_data.get("address")
+            if token_address and (not ALLOWED_TOKENS or token_address in ALLOWED_TOKENS):
+                pools.append({"dex": "Raydium", "token": token_address})
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 429:
+            print("❌ Raydium rate limited. Retrying after short delay...")
+            time.sleep(random.uniform(3, 10))
+        else:
+            print(f"❌ Error fetching Raydium liquidity pools: {e}")
+    except Exception as e:
+        print(f"❌ Error fetching Raydium liquidity pools: {e}")
 
-            if isinstance(data, list):
-                for pool_data in data:
-                    token_address = pool_data.get("mint") or pool_data.get("address") or pool_data.get("baseMint")
-                    if token_address:
-                        pools.append({"dex": dex, "token": token_address})
-            elif isinstance(data, dict):
-                for pool_id, pool_data in data.items():
-                    token_address = pool_data.get("mint") or pool_data.get("address") or pool_data.get("baseMint")
-                    if token_address:
-                        pools.append({"dex": dex, "token": token_address})
-
-        except requests.exceptions.HTTPError as e:
-            if response.status_code == 429:
-                print("❌ Raydium rate limited. Retrying after short delay...")
-                time.sleep(random.uniform(3, 10))
-            else:
-                print(f"❌ Error fetching {dex} liquidity pools: {e}")
-        except Exception as e:
-            print(f"❌ Error fetching {dex} liquidity pools: {e}")
+    # Orca GraphQL API via Bisonai
+    try:
+        graphql_query = {
+            "query": """
+            query {
+              pools {
+                id
+                tokenA { mint symbol }
+                tokenB { mint symbol }
+              }
+            }
+            """
+        }
+        response = requests.post("https://orca-api.bisonai.com/graphql", json=graphql_query, timeout=10, headers=headers)
+        response.raise_for_status()
+        orca_data = response.json()
+        if "data" in orca_data and "pools" in orca_data["data"]:
+            for pool in orca_data["data"]["pools"]:
+                tokenA = pool["tokenA"].get("mint")
+                tokenB = pool["tokenB"].get("mint")
+                if tokenA and (not ALLOWED_TOKENS or tokenA in ALLOWED_TOKENS):
+                    pools.append({"dex": "Orca", "token": tokenA})
+                if tokenB and (not ALLOWED_TOKENS or tokenB in ALLOWED_TOKENS):
+                    pools.append({"dex": "Orca", "token": tokenB})
+    except Exception as e:
+        print(f"❌ Error fetching Orca pools: {e}")
 
     return pools
 
-# ========== Profit Distribution ==========
+# ========== Profit Distribution ===========
 
 def distribute_profit(amount):
     summary_lines = [f"💸 Distributing total profit of {amount:.4f} SOL:"]
@@ -159,7 +178,7 @@ def distribute_profit(amount):
         summary_lines.append(f"- {wallet}: {share:.4f} SOL ({percent}%)")
     send_telegram_message("\n".join(summary_lines))
 
-# ========== Auto Withdrawals ==========
+# ========== Auto Withdrawals ===========
 
 def check_auto_withdrawal():
     if not auto_withdrawal_cfg.get("enabled"):
@@ -177,7 +196,7 @@ def check_auto_withdrawal():
         send_telegram_message(f"💸 Profit threshold of {threshold} SOL reached. Triggering auto-withdrawal!")
         distribute_profit(profit)
 
-# ========== Prevent Multiple Telegram Alerts ==========
+# ========== Prevent Multiple Telegram Alerts ===========
 
 def send_startup_message_once():
     if not os.path.exists(STARTUP_LOCK_FILE):
@@ -185,7 +204,7 @@ def send_startup_message_once():
         with open(STARTUP_LOCK_FILE, "w") as f:
             f.write("sent")
 
-# ========== Bot Main Loop ==========
+# ========== Bot Main Loop ===========
 
 def bot_main_loop():
     global trade_count, profit
@@ -217,7 +236,7 @@ def bot_main_loop():
 
         time.sleep(10)
 
-# ========== Start Threads ==========
+# ========== Start Threads ===========
 
 if __name__ == "__main__":
     # Clear startup lock if it exists

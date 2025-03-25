@@ -219,10 +219,12 @@ if __name__ == "__main__":
 
     # ✅ Only send the startup message once using a lock file
     LOCK_FILE = "bot_started.lock"
-    if not os.path.exists(LOCK_FILE):
+    if not os.path.exists("bot_started.lock"):
+    time.sleep(2)  # slight delay
         send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-        with open(LOCK_FILE, "w") as f:
+        with open("bot_started.lock", "w") as f:
             f.write("sent")
+
 
     Thread(target=bot_main_loop, daemon=True).start()
 

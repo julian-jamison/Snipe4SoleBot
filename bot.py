@@ -14,9 +14,6 @@ from decrypt_config import config
 from utils import log_trade_result
 from telegram_command_handler import run_telegram_command_listener
 
-if os.path.exists("bot_started.lock"):
-    os.remove("bot_started.lock")
-
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
@@ -27,12 +24,13 @@ TRADE_SETTINGS = config["trade_settings"]
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
+STARTUP_LOCK_FILE = "bot_started.lock"
 start_time = time.time()
 trade_count = 0
 profit = 0
 wallet_index = 0  # For round-robin
 
-# ========== Load Wallets ==========
+# ========== Load Wallets ===========
 
 def load_wallets_config():
     if not os.path.exists(WALLETS_FILE):
@@ -179,6 +177,14 @@ def check_auto_withdrawal():
         send_telegram_message(f"💸 Profit threshold of {threshold} SOL reached. Triggering auto-withdrawal!")
         distribute_profit(profit)
 
+# ========== Prevent Multiple Telegram Alerts ==========
+
+def send_startup_message_once():
+    if not os.path.exists(STARTUP_LOCK_FILE):
+        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+        with open(STARTUP_LOCK_FILE, "w") as f:
+            f.write("sent")
+
 # ========== Bot Main Loop ==========
 
 def bot_main_loop():
@@ -214,7 +220,6 @@ def bot_main_loop():
 # ========== Start Threads ==========
 
 if __name__ == "__main__":
-    # Reset lock file on every reboot/session start
     if os.path.exists(STARTUP_LOCK_FILE):
         os.remove(STARTUP_LOCK_FILE)
 
@@ -222,34 +227,9 @@ if __name__ == "__main__":
 
     Thread(target=bot_main_loop, daemon=True).start()
 
-    import nest_asyncio
     nest_asyncio.apply()
 
     try:
         asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
         print(f"❌ Telegram listener failed to start: {e}")
-
-    # ✅ Only send the startup message once using a lock file
-# ========= Prevent Multiple Telegram Alerts =========
-
-STARTUP_LOCK_FILE = "bot_started.lock"
-
-def send_startup_message_once():
-    """Sends the startup Telegram message once per session."""
-    if not os.path.exists(STARTUP_LOCK_FILE):
-        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-        with open(STARTUP_LOCK_FILE, "w") as f:
-            f.write("sent")
-
-
-
-    Thread(target=bot_main_loop, daemon=True).start()
-
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-    except RuntimeError as e:
-        print(f"❌ Telegram listener failed to start: {e}")
-
-

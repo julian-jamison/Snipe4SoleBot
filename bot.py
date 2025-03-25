@@ -210,18 +210,12 @@ def bot_main_loop():
 
 # ========== Start Threads ==========
 
-if __name__ == "__main__":
-    Thread(target=bot_main_loop, daemon=True).start()
-
-    import nest_asyncio
-    nest_asyncio.apply()
-
+try:
     loop = asyncio.get_event_loop()
     loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
     loop.run_forever()
 
-        
-    except RuntimeError as e:
-        print(f"❌ Event loop error: {e}")
+except RuntimeError as e:
+    print(f"❌ Error starting Telegram listener: {e}")
 

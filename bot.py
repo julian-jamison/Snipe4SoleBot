@@ -122,15 +122,18 @@ def get_new_liquidity_pools():
     pools = []
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    # Raydium API
+    # Raydium V3 API
     try:
-        response = requests.get("https://api.raydium.io/v2/ammV3/markets", timeout=10, headers=headers)
+        response = requests.get("https://api-v3.raydium.io/pairs", timeout=10, headers=headers)
         response.raise_for_status()
         raydium_data = response.json()
         for pool_data in raydium_data:
-            token_address = pool_data.get("baseMint") or pool_data.get("mint") or pool_data.get("address")
-            if token_address and (not ALLOWED_TOKENS or token_address in ALLOWED_TOKENS):
-                pools.append({"dex": "Raydium", "token": token_address})
+            base_mint = pool_data.get("baseMint")
+            quote_mint = pool_data.get("quoteMint")
+            if base_mint and (not ALLOWED_TOKENS or base_mint in ALLOWED_TOKENS):
+                pools.append({"dex": "Raydium", "token": base_mint})
+            if quote_mint and (not ALLOWED_TOKENS or quote_mint in ALLOWED_TOKENS):
+                pools.append({"dex": "Raydium", "token": quote_mint})
     except requests.exceptions.HTTPError as e:
         if response.status_code == 429:
             print("❌ Raydium rate limited. Retrying after short delay...")
@@ -139,33 +142,6 @@ def get_new_liquidity_pools():
             print(f"❌ Error fetching Raydium liquidity pools: {e}")
     except Exception as e:
         print(f"❌ Error fetching Raydium liquidity pools: {e}")
-
-    # Orca GraphQL API via Bisonai
-    try:
-        graphql_query = {
-            "query": """
-            query {
-              pools {
-                id
-                tokenA { mint symbol }
-                tokenB { mint symbol }
-              }
-            }
-            """
-        }
-        response = requests.post("https://orca-api.bisonai.com/graphql", json=graphql_query, timeout=10, headers=headers)
-        response.raise_for_status()
-        orca_data = response.json()
-        if "data" in orca_data and "pools" in orca_data["data"]:
-            for pool in orca_data["data"]["pools"]:
-                tokenA = pool["tokenA"].get("mint")
-                tokenB = pool["tokenB"].get("mint")
-                if tokenA and (not ALLOWED_TOKENS or tokenA in ALLOWED_TOKENS):
-                    pools.append({"dex": "Orca", "token": tokenA})
-                if tokenB and (not ALLOWED_TOKENS or tokenB in ALLOWED_TOKENS):
-                    pools.append({"dex": "Orca", "token": tokenB})
-    except Exception as e:
-        print(f"❌ Error fetching Orca pools: {e}")
 
     return pools
 

@@ -6,6 +6,8 @@ import schedule
 from datetime import datetime
 from telegram import Bot
 from decrypt_config import config
+import asyncio
+from telegram.error import RetryAfter, TimedOut
 
 # Load config values
 TELEGRAM_BOT_TOKEN = config['telegram']['bot_token']
@@ -21,14 +23,27 @@ async def _send_async_message(message):
     except Exception as e:
         print(f"❌ Telegram message failed: {e}")
 
-def send_telegram_message(message):
-    """Sends a Telegram message safely across sync/async contexts."""
-    try:
-        asyncio.run(_send_async_message(message))
-        print(f"📩 Telegram message sent: {message}")
-    except RuntimeError:
-        loop = asyncio.get_event_loop()
-        loop.create_task(_send_async_message(message))
+def send_telegram_message(message: str, retries=3):
+    """Sends a Telegram alert with retry and flood control handling."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("⚠️ Telegram bot token or chat ID not set. Message not sent.")
+        return
+
+    for attempt in range(retries):
+        try:
+            asyncio.run(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
+            print(f"📩 Telegram message sent: {message}")
+            return
+        except RetryAfter as e:
+            wait_time = int(e.retry_after)
+            print(f"⏳ Flood control: retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+        except TimedOut:
+            print("❌ Telegram message failed: Timed out")
+            time.sleep(5)
+        except Exception as e:
+            print(f"❌ Failed to send Telegram message: {e}")
+            break
 
 def send_trade_alert(action, token, price, quantity, profit_loss=None):
     """Sends a detailed trade alert to Telegram."""

@@ -214,18 +214,33 @@ def bot_main_loop():
 # ========== Start Threads ==========
 
 if __name__ == "__main__":
+    # Reset lock file on every reboot/session start
+    if os.path.exists(STARTUP_LOCK_FILE):
+        os.remove(STARTUP_LOCK_FILE)
+
+    send_startup_message_once()
+
+    Thread(target=bot_main_loop, daemon=True).start()
+
     import nest_asyncio
     nest_asyncio.apply()
 
-    # ✅ Only send the startup message once using a lock file
-LOCK_FILE = "bot_started.lock"
-# Prevent multiple startup messages
-if not os.path.exists("bot_started.lock"):
-    time.sleep(2)  # slight delay
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-    with open("bot_started.lock", "w") as f:
-        f.write("sent")
+    try:
+        asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    except RuntimeError as e:
+        print(f"❌ Telegram listener failed to start: {e}")
 
+    # ✅ Only send the startup message once using a lock file
+# ========= Prevent Multiple Telegram Alerts =========
+
+STARTUP_LOCK_FILE = "bot_started.lock"
+
+def send_startup_message_once():
+    """Sends the startup Telegram message once per session."""
+    if not os.path.exists(STARTUP_LOCK_FILE):
+        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+        with open(STARTUP_LOCK_FILE, "w") as f:
+            f.write("sent")
 
 
 

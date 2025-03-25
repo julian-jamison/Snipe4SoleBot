@@ -218,12 +218,15 @@ if __name__ == "__main__":
     nest_asyncio.apply()
 
     # ✅ Only send the startup message once using a lock file
-    LOCK_FILE = "bot_started.lock"
-    if not os.path.exists("bot_started.lock"):
+LOCK_FILE = "bot_started.lock"
+# Prevent multiple startup messages
+if not os.path.exists("bot_started.lock"):
     time.sleep(2)  # slight delay
-        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-        with open("bot_started.lock", "w") as f:
-            f.write("sent")
+    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+    with open("bot_started.lock", "w") as f:
+        f.write("sent")
+
+
 
 
     Thread(target=bot_main_loop, daemon=True).start()

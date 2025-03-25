@@ -11,7 +11,7 @@ from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
-from telegram_command_handler import run_telegram_command_listener, register_wallet_command
+from telegram_command_handler import run_telegram_command_listener
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -213,7 +213,6 @@ if __name__ == "__main__":
     Thread(target=bot_main_loop, daemon=True).start()
 
     try:
-        register_wallet_command()  # Register the /wallets command
         asyncio.get_event_loop().run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
         if "already running" in str(e):

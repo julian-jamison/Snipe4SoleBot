@@ -25,6 +25,7 @@ STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 STARTUP_LOCK_FILE = "bot_started.lock"
+TELEGRAM_LOCK_FILE = "telegram_listener.lock"
 start_time = time.time()
 trade_count = 0
 profit = 0
@@ -228,31 +229,21 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove("pause_flag")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
-TELEGRAM_LOCK_FILE = "telegram_listener.lock"
-
 async def run_telegram_command_listener(token):
     if os.path.exists(TELEGRAM_LOCK_FILE):
         print("⚠️ Telegram listener already running.")
         return
-
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("wallets", wallets))
+    app.add_handler(CommandHandler("pause", pause))
+    app.add_handler(CommandHandler("resume", resume))
+    print("🤖 Telegram command listener running...")
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
     with open(TELEGRAM_LOCK_FILE, "w") as f:
-        f.write("running")
-
-    try:
-        app = ApplicationBuilder().token(token).build()
-        app.add_handler(CommandHandler("status", status))
-        app.add_handler(CommandHandler("wallets", wallets))
-        app.add_handler(CommandHandler("pause", pause))
-        app.add_handler(CommandHandler("resume", resume))
-        print("🤖 Telegram command listener running...")
-        await app.initialize()
-        await app.start()
-        await app.updater.start_polling()
-    finally:
-        if os.path.exists(TELEGRAM_LOCK_FILE):
-            os.remove(TELEGRAM_LOCK_FILE)
-
-
+        f.write("started")
 
 # ========== Bot Main Loop ===========
 

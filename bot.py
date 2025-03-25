@@ -224,4 +224,3 @@ if __name__ == "__main__":
         asyncio.run(start_bot())
     except RuntimeError as e:
         print(f"❌ Telegram listener failed to start: {e}")
-

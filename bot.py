@@ -179,11 +179,18 @@ def check_auto_withdrawal():
 
 # ========== Prevent Multiple Telegram Alerts ==========
 
+startup_message_sent = False  # Global in-memory flag
+
 def send_startup_message_once():
+    global startup_message_sent
+    if startup_message_sent:
+        return
+
     if not os.path.exists(STARTUP_LOCK_FILE):
         send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
         with open(STARTUP_LOCK_FILE, "w") as f:
             f.write("sent")
+        startup_message_sent = True
 
 # ========== Bot Main Loop ==========
 

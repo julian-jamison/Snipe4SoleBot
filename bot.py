@@ -211,13 +211,22 @@ def bot_main_loop():
 # ========== Start Threads ==========
 
 if __name__ == "__main__":
+    # Start trading bot loop
     Thread(target=bot_main_loop, daemon=True).start()
 
+    # Allow async inside existing loop (for Telegram)
     import nest_asyncio
     nest_asyncio.apply()
 
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+    # Run Telegram listener
+    try:
+        loop = asyncio.get_event_loop()
+        loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-    loop.run_forever()
+        # Send startup message BEFORE run_forever
+        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+
+        loop.run_forever()
+    except RuntimeError as e:
+        print(f"❌ Event loop error: {e}")
+

@@ -220,16 +220,13 @@ def bot_main_loop():
 # ========== Start Threads ==========
 
 if __name__ == "__main__":
-    # Prevent duplicate startup messages
-    if not os.path.exists(STARTUP_LOCK_FILE):
-        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-        with open(STARTUP_LOCK_FILE, "w") as f:
-            f.write("sent")
+    # Only send startup message if this is the first run
+    send_startup_message_once()
 
-    # Start the trading loop
+    # Start trading logic in a background thread
     Thread(target=bot_main_loop, daemon=True).start()
 
-    # Ensure Telegram bot runs in current event loop
+    # Enable nested event loop compatibility
     nest_asyncio.apply()
 
     try:

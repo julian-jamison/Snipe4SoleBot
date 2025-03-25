@@ -220,10 +220,12 @@ if __name__ == "__main__":
     import nest_asyncio
     nest_asyncio.apply()
 
-    # ✅ Send startup message once
+    # ✅ Send startup message once, outside async loop
     send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
 
     try:
-        asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
         print(f"❌ Telegram listener failed to start: {e}")
+

@@ -216,8 +216,8 @@ if __name__ == "__main__":
     import nest_asyncio
     nest_asyncio.apply()
 
+    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+
     loop = asyncio.get_event_loop()
     loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     loop.run_forever()
-
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")

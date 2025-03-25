@@ -270,6 +270,10 @@ def bot_main_loop():
 # ========== Start Threads ===========
 
 if __name__ == "__main__":
+    # Auto-delete lock file on reboot
+    if os.path.exists(TELEGRAM_LOCK_FILE):
+        os.remove(TELEGRAM_LOCK_FILE)
+
     send_startup_message_once()
     Thread(target=bot_main_loop, daemon=True).start()
     nest_asyncio.apply()

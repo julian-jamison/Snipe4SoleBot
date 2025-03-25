@@ -237,7 +237,7 @@ async def run_telegram_command_listener(token):
     print("🤖 Telegram command listener running...")
     await app.initialize()
     await app.start()
-    await app.updater.start_polling()
+    await app.run_polling()
 
 # ========== Bot Main Loop ===========
 

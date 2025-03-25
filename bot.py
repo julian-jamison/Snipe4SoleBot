@@ -220,16 +220,20 @@ def bot_main_loop():
 # ========== Start Threads ==========
 
 if __name__ == "__main__":
-    if os.path.exists(STARTUP_LOCK_FILE):
-        os.remove(STARTUP_LOCK_FILE)
+    # Prevent duplicate startup messages
+    if not os.path.exists(STARTUP_LOCK_FILE):
+        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+        with open(STARTUP_LOCK_FILE, "w") as f:
+            f.write("sent")
 
-    send_startup_message_once()
-
+    # Start the trading loop
     Thread(target=bot_main_loop, daemon=True).start()
 
+    # Ensure Telegram bot runs in current event loop
     nest_asyncio.apply()
 
     try:
         asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
         print(f"❌ Telegram listener failed to start: {e}")
+

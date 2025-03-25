@@ -179,18 +179,11 @@ def check_auto_withdrawal():
 
 # ========== Prevent Multiple Telegram Alerts ==========
 
-startup_message_sent = False  # Global in-memory flag
-
 def send_startup_message_once():
-    global startup_message_sent
-    if startup_message_sent:
-        return
-
     if not os.path.exists(STARTUP_LOCK_FILE):
         send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
         with open(STARTUP_LOCK_FILE, "w") as f:
             f.write("sent")
-        startup_message_sent = True
 
 # ========== Bot Main Loop ==========
 
@@ -227,17 +220,17 @@ def bot_main_loop():
 # ========== Start Threads ==========
 
 if __name__ == "__main__":
-    # Only send startup message if this is the first run
+    # Clear startup lock if it exists
+    if os.path.exists(STARTUP_LOCK_FILE):
+        os.remove(STARTUP_LOCK_FILE)
+
     send_startup_message_once()
 
-    # Start trading logic in a background thread
     Thread(target=bot_main_loop, daemon=True).start()
 
-    # Enable nested event loop compatibility
     nest_asyncio.apply()
 
     try:
         asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
         print(f"❌ Telegram listener failed to start: {e}")
-

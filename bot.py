@@ -14,6 +14,9 @@ from decrypt_config import config
 from utils import log_trade_result
 from telegram_command_handler import run_telegram_command_listener
 
+if os.path.exists("bot_started.lock"):
+    os.remove("bot_started.lock")
+
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
@@ -210,22 +213,23 @@ def bot_main_loop():
 
 # ========== Start Threads ==========
 
-async def start_bot():
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-    await run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
-
 if __name__ == "__main__":
-    Thread(target=bot_main_loop, daemon=True).start()
-
     import nest_asyncio
     nest_asyncio.apply()
 
-    # ✅ Send startup message once, outside async loop
-    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+    # ✅ Only send the startup message once using a lock file
+    LOCK_FILE = "bot_started.lock"
+    if not os.path.exists(LOCK_FILE):
+        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+        with open(LOCK_FILE, "w") as f:
+            f.write("sent")
+
+    Thread(target=bot_main_loop, daemon=True).start()
 
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:
         print(f"❌ Telegram listener failed to start: {e}")
+
 

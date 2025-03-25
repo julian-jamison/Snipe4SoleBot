@@ -245,10 +245,13 @@ async def run_telegram_command_listener(token):
         app.add_handler(CommandHandler("pause", pause))
         app.add_handler(CommandHandler("resume", resume))
         print("🤖 Telegram command listener running...")
-        await app.run_polling()
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling()
     finally:
         if os.path.exists(TELEGRAM_LOCK_FILE):
             os.remove(TELEGRAM_LOCK_FILE)
+
 
 
 # ========== Bot Main Loop ===========

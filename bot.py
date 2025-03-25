@@ -122,9 +122,9 @@ def get_new_liquidity_pools():
     pools = []
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    # Raydium V3 API
+    # Raydium API (Updated endpoint)
     try:
-        response = requests.get("https://api-v3.raydium.io/pairs", timeout=10, headers=headers)
+        response = requests.get("https://api.raydium.io/v2/main/pairs", timeout=10, headers=headers)
         response.raise_for_status()
         raydium_data = response.json()
         for pool_data in raydium_data:

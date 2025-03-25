@@ -233,17 +233,21 @@ async def run_telegram_command_listener(token):
     if os.path.exists(TELEGRAM_LOCK_FILE):
         print("⚠️ Telegram listener already running.")
         return
+
+    print("🤖 Telegram command listener running...")
+    with open(TELEGRAM_LOCK_FILE, "w") as f:
+        f.write("started")
+
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("wallets", wallets))
     app.add_handler(CommandHandler("pause", pause))
     app.add_handler(CommandHandler("resume", resume))
-    print("🤖 Telegram command listener running...")
+
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
-    with open(TELEGRAM_LOCK_FILE, "w") as f:
-        f.write("started")
+
 
 # ========== Bot Main Loop ===========
 

@@ -7,6 +7,7 @@ from threading import Thread
 import asyncio
 import random
 import requests
+import atexit
 
 import nest_asyncio
 from telegram import Update, Bot
@@ -45,9 +46,14 @@ def enforce_singleton():
         fcntl.flock(pidfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
         pidfile.write(str(os.getpid()))
         pidfile.flush()
+        atexit.register(cleanup_pid_lock)
     except IOError:
         print("❌ Another instance is already running. Exiting.")
         sys.exit(1)
+
+def cleanup_pid_lock():
+    if os.path.exists(PID_LOCK_FILE):
+        os.remove(PID_LOCK_FILE)
 
 # ========== Load Wallets ===========
 

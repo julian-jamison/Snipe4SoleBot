@@ -241,8 +241,10 @@ def bot_main_loop():
 if __name__ == "__main__":
     enforce_singleton()
 
-    if os.path.exists(TELEGRAM_LOCK_FILE):
-        os.remove(TELEGRAM_LOCK_FILE)
+    # Clean up stale lock files on reboot or crash
+    for lock_file in [STARTUP_LOCK_FILE, TELEGRAM_LOCK_FILE]:
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
 
     send_startup_message_once()
     Thread(target=bot_main_loop, daemon=True).start()

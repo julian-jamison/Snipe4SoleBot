@@ -216,11 +216,15 @@ async def run_telegram_command_listener(token):
 
     from telegram_command_handler import status, wallets, pause, resume
 
+    async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Bot is alive and responding.")
+
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("wallets", wallets))
     app.add_handler(CommandHandler("pause", pause))
     app.add_handler(CommandHandler("resume", resume))
+    app.add_handler(CommandHandler("debug", debug))
 
     await app.initialize()
     await app.start()

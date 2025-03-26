@@ -2,19 +2,18 @@ import json
 import os
 import time
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from decrypt_config import config
+from telegram.ext import ContextTypes
 
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 
-TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
-
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
+
+    print(f"📩 Received /status from chat_id={update.effective_chat.id}")
 
     try:
         with open(STATUS_FILE, "r") as f:
@@ -26,8 +25,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Trades: {status_data['trade_count']}\n"
             f"Profit: {status_data['profit']} SOL"
         )
-    except:
-        msg = "⚠️ Could not load bot status."
+    except Exception as e:
+        msg = f"⚠️ Could not load bot status: {e}"
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
 
@@ -35,6 +34,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
+
+    print(f"📩 Received /wallets from chat_id={update.effective_chat.id}")
 
     try:
         with open(PORTFOLIO_FILE, "r") as pf:
@@ -56,27 +57,14 @@ async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"📩 Received /pause from chat_id={update.effective_chat.id}")
     with open("pause_flag", "w") as f:
         f.write("1")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
 
 
 async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"📩 Received /resume from chat_id={update.effective_chat.id}")
     if os.path.exists("pause_flag"):
         os.remove("pause_flag")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
-
-
-async def run_telegram_command_listener(token):
-    app = ApplicationBuilder().token(token).build()
-
-    # Add your command handlers
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("pause", pause))
-    app.add_handler(CommandHandler("resume", resume))
-    app.add_handler(CommandHandler("wallets", wallets))  # If implemented
-
-    print("🤖 Telegram command listener running...")
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()

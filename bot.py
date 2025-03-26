@@ -186,10 +186,11 @@ def check_auto_withdrawal():
 # ========== Prevent Multiple Telegram Alerts ===========
 
 def send_startup_message_once():
-    if not os.path.exists(STARTUP_LOCK_FILE):
-        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-        with open(STARTUP_LOCK_FILE, "w") as f:
-            f.write("sent")
+    if os.path.exists(STARTUP_LOCK_FILE):
+        return
+    send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+    with open(STARTUP_LOCK_FILE, "w") as f:
+        f.write("sent")
 
 # ========== Telegram Command Listener ===========
 
@@ -241,11 +242,9 @@ def bot_main_loop():
 if __name__ == "__main__":
     enforce_singleton()
 
-    # Clean up stale lock files on reboot or crash
-    for lock_file in [STARTUP_LOCK_FILE, TELEGRAM_LOCK_FILE]:
-      # Clean up stale lock file for Telegram only
-        if os.path.exists(TELEGRAM_LOCK_FILE):
-            os.remove(TELEGRAM_LOCK_FILE)
+    # Clean up stale lock file for Telegram only
+    if os.path.exists(TELEGRAM_LOCK_FILE):
+        os.remove(TELEGRAM_LOCK_FILE)
 
     send_startup_message_once()
     Thread(target=bot_main_loop, daemon=True).start()

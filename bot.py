@@ -117,117 +117,7 @@ def load_bot_status():
 
 load_bot_status()
 
-# ========== Get New Liquidity Pools ===========
-
-def get_new_liquidity_pools():
-    pools = []
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    # Raydium API (Updated endpoint)
-    try:
-        response = requests.get("https://api.raydium.io/v2/main/pairs", timeout=10, headers=headers)
-        response.raise_for_status()
-        raydium_data = response.json()
-        for pool_data in raydium_data:
-            base_mint = pool_data.get("baseMint")
-            quote_mint = pool_data.get("quoteMint")
-            if base_mint and (not ALLOWED_TOKENS or base_mint in ALLOWED_TOKENS):
-                pools.append({"dex": "Raydium", "token": base_mint})
-            if quote_mint and (not ALLOWED_TOKENS or quote_mint in ALLOWED_TOKENS):
-                pools.append({"dex": "Raydium", "token": quote_mint})
-    except requests.exceptions.HTTPError as e:
-        if response.status_code == 429:
-            print("❌ Raydium rate limited. Retrying after short delay...")
-            time.sleep(random.uniform(3, 10))
-        else:
-            print(f"❌ Error fetching Raydium liquidity pools: {e}")
-    except Exception as e:
-        print(f"❌ Error fetching Raydium liquidity pools: {e}")
-
-    return pools
-
-# ========== Profit Distribution ===========
-
-def distribute_profit(amount):
-    summary_lines = [f"💸 Distributing total profit of {amount:.4f} SOL:"]
-    for wallet, percent in profit_split.items():
-        share = (percent / 100) * amount
-        summary_lines.append(f"- {wallet}: {share:.4f} SOL ({percent}%)")
-    send_telegram_message("\n".join(summary_lines))
-
-# ========== Auto Withdrawals ===========
-
-def check_auto_withdrawal():
-    if not auto_withdrawal_cfg.get("enabled"):
-        return
-
-    if auto_withdrawal_cfg.get("emergency_stop", {}).get("enabled"):
-        crash_threshold = auto_withdrawal_cfg["emergency_stop"].get("market_crash_threshold", -15)
-        if profit < crash_threshold:
-            if auto_withdrawal_cfg["emergency_stop"].get("telegram_alert"):
-                send_telegram_message("🚨 Emergency Stop: Market crash threshold triggered. Withdrawals paused.")
-            return
-
-    threshold = auto_withdrawal_cfg.get("threshold", 0)
-    if profit >= threshold:
-        send_telegram_message(f"💸 Profit threshold of {threshold} SOL reached. Triggering auto-withdrawal!")
-        distribute_profit(profit)
-
-# ========== Prevent Multiple Telegram Alerts ===========
-
-def send_startup_message_once():
-    if not os.path.exists(STARTUP_LOCK_FILE):
-        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
-        with open(STARTUP_LOCK_FILE, "w") as f:
-            f.write("sent")
-
 # ========== Telegram Command Listener ===========
-
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
-    try:
-        with open(STATUS_FILE, "r") as f:
-            status_data = json.load(f)
-        uptime = round((time.time() - status_data["start_time"]) / 60, 2)
-        msg = (
-            f"📈 Bot Status:\n"
-            f"Uptime: {uptime} mins\n"
-            f"Trades: {status_data['trade_count']}\n"
-            f"Profit: {status_data['profit']} SOL"
-        )
-    except:
-        msg = "⚠️ Could not load bot status."
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
-
-async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
-    try:
-        with open(PORTFOLIO_FILE, "r") as pf:
-            portfolio = json.load(pf)
-        with open(WALLETS_FILE, "r") as wf:
-            wallets_data = json.load(wf)["wallets"]
-
-        message = "👛 Wallet Overview:\n"
-        for name, address in wallets_data.items():
-            value = 0
-            for token_data in portfolio.get(address, {}).values():
-                value += token_data.get("quantity", 0) * token_data.get("avg_price", 0)
-            message += f"- {name} ({address[:5]}...): {value:.4f} SOL\n"
-    except Exception as e:
-        message = f"⚠️ Failed to load wallet data: {e}"
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
-async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with open("pause_flag", "w") as f:
-        f.write("1")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
-
-async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if os.path.exists("pause_flag"):
-        os.remove("pause_flag")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
 async def run_telegram_command_listener(token):
     if os.path.exists(TELEGRAM_LOCK_FILE):
@@ -238,6 +128,7 @@ async def run_telegram_command_listener(token):
     with open(TELEGRAM_LOCK_FILE, "w") as f:
         f.write("started")
 
+    from telegram_commands import (status, wallets, pause, resume)
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("wallets", wallets))
@@ -247,7 +138,6 @@ async def run_telegram_command_listener(token):
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
-
 
 # ========== Bot Main Loop ===========
 
@@ -274,13 +164,17 @@ def bot_main_loop():
 # ========== Start Threads ===========
 
 if __name__ == "__main__":
-    # Auto-delete lock file on reboot
     if os.path.exists(TELEGRAM_LOCK_FILE):
         os.remove(TELEGRAM_LOCK_FILE)
 
-    send_startup_message_once()
+    if not os.path.exists(STARTUP_LOCK_FILE):
+        send_telegram_message("✅ Snipe4SoleBot is now running with auto sell enabled!")
+        with open(STARTUP_LOCK_FILE, "w") as f:
+            f.write("sent")
+
     Thread(target=bot_main_loop, daemon=True).start()
     nest_asyncio.apply()
+
     try:
         asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except RuntimeError as e:

@@ -196,7 +196,7 @@ def send_startup_message_once():
 
 async def run_telegram_command_listener(token):
     if os.path.exists(TELEGRAM_LOCK_FILE):
-        print("⚠️ Telegram listener already running.")
+        print("⚠️ Telegram listener already running — skipping initialization.")
         return
 
     print("🤖 Telegram command listener running...")

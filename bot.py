@@ -241,11 +241,6 @@ def bot_main_loop():
 
 if __name__ == "__main__":
     enforce_singleton()
-
-    # Clean up stale lock file for Telegram only
-    if os.path.exists(TELEGRAM_LOCK_FILE):
-        os.remove(TELEGRAM_LOCK_FILE)
-
     send_startup_message_once()
     Thread(target=bot_main_loop, daemon=True).start()
     nest_asyncio.apply()

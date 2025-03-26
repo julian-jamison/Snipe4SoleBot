@@ -47,6 +47,7 @@ def enforce_singleton():
         pidfile.write(str(os.getpid()))
         pidfile.flush()
         atexit.register(cleanup_pid_lock)
+        atexit.register(cleanup_telegram_lock)
     except IOError:
         print("❌ Another instance is already running. Exiting.")
         sys.exit(1)
@@ -54,6 +55,10 @@ def enforce_singleton():
 def cleanup_pid_lock():
     if os.path.exists(PID_LOCK_FILE):
         os.remove(PID_LOCK_FILE)
+
+def cleanup_telegram_lock():
+    if os.path.exists(TELEGRAM_LOCK_FILE):
+        os.remove(TELEGRAM_LOCK_FILE)
 
 # ========== Load Wallets ===========
 

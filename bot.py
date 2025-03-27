@@ -8,7 +8,6 @@ import asyncio
 import random
 import requests
 import atexit
-import bot_token from config
 
 import nest_asyncio
 from telegram import Update, Bot
@@ -214,6 +213,8 @@ async def run_telegram_command_listener(token):
     print("🤖 Telegram command listener running...")
     with open(TELEGRAM_LOCK_FILE, "w") as f:
         f.write("started")
+
+    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="🔔 Telegram listener initialized and ready!")
 
     async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("📩 Received /debug command")

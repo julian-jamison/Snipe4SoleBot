@@ -8,11 +8,13 @@ STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 
-# /status
+
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
+
     print(f"📩 Received /status from chat_id={update.effective_chat.id}")
+
     try:
         with open(STATUS_FILE, "r") as f:
             status_data = json.load(f)
@@ -25,44 +27,58 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         msg = f"⚠️ Could not load bot status: {e}"
+
     await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
 
-# /wallets
+
 async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
+
     print(f"📩 Received /wallets from chat_id={update.effective_chat.id}")
+
     try:
         with open(PORTFOLIO_FILE, "r") as pf:
             portfolio = json.load(pf)
+    except Exception as e:
+        portfolio = {}
+        print(f"⚠️ Error loading portfolio.json: {e}")
+
+    try:
         with open(WALLETS_FILE, "r") as wf:
             wallets_data = json.load(wf)["wallets"]
-        message = "👛 Wallet Overview:\n"
-        for name, address in wallets_data.items():
-            value = 0
-            for token_data in portfolio.get(address, {}).values():
-                value += token_data.get("quantity", 0) * token_data.get("avg_price", 0)
-            message += f"- {name} ({address[:5]}...): {value:.4f} SOL\n"
     except Exception as e:
-        message = f"⚠️ Failed to load wallet data: {e}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"⚠️ Failed to load wallets.json: {e}")
+        return
+
+    if not portfolio:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Portfolio is empty.")
+        return
+
+    message = "👛 Wallet Overview:\n"
+    for name, address in wallets_data.items():
+        value = 0
+        for token_data in portfolio.get(address, {}).values():
+            value += token_data.get("quantity", 0) * token_data.get("avg_price", 0)
+        message += f"- {name} ({address[:5]}...): {value:.4f} SOL\n"
+
     await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
-# /pause
+
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /pause from chat_id={update.effective_chat.id}")
     with open("pause_flag", "w") as f:
         f.write("1")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
 
-# /resume
+
 async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /resume from chat_id={update.effective_chat.id}")
     if os.path.exists("pause_flag"):
         os.remove("pause_flag")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
-# /debug (optional)
+
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
-    msg = f"Debug Info:\nChat ID: {update.effective_chat.id}\nUser: {update.effective_user.username or 'Unknown'}"
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Debug mode is working.")

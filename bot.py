@@ -8,6 +8,7 @@ import asyncio
 import random
 import requests
 import atexit
+import csv
 
 import nest_asyncio
 from telegram import Update, Bot
@@ -16,6 +17,7 @@ from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
+from solana.rpc.api import Client
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -23,6 +25,7 @@ TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 TRADE_SETTINGS = config["trade_settings"]
+LIVE_MODE = config.get("live_mode", False)
 
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
@@ -30,11 +33,15 @@ WALLETS_FILE = "wallets.json"
 STARTUP_LOCK_FILE = "bot_started.lock"
 TELEGRAM_LOCK_FILE = "telegram_listener.lock"
 PID_LOCK_FILE = "snipe4solebot.pid"
+TRADE_LOG_CSV = "trade_log.csv"
+
+SOLANA_RPC_URL = config.get("solana_rpc_url", "https://api.mainnet-beta.solana.com")
+solana_client = Client(SOLANA_RPC_URL)
 
 start_time = time.time()
 trade_count = 0
 profit = 0
-wallet_index = 0  # For round-robin
+wallet_index = 0
 
 ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
 
@@ -84,6 +91,16 @@ def get_next_wallet():
     wallet_index += 1
     return wallet
 
+# ========== Solana Wallet Balance ===========
+
+def get_wallet_balance(wallet_address):
+    try:
+        response = solana_client.get_balance(wallet_address)
+        return response['result']['value'] / 1e9  # Convert lamports to SOL
+    except Exception as e:
+        print(f"⚠️ Error fetching balance for {wallet_address}: {e}")
+        return 0
+
 # ========== Portfolio Management ===========
 
 def load_portfolio():
@@ -121,6 +138,19 @@ def update_portfolio(token, action, price, quantity, wallet):
             del portfolio[wallet]
 
     save_portfolio(portfolio)
+    log_trade_csv(token, action, price, quantity, wallet)
+
+# ========== Trade CSV Logging ===========
+
+def log_trade_csv(token, action, price, quantity, wallet):
+    headers = ["timestamp", "wallet", "token", "action", "price", "quantity"]
+    row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
+    write_headers = not os.path.exists(TRADE_LOG_CSV)
+    with open(TRADE_LOG_CSV, "a", newline="") as f:
+        writer = csv.writer(f)
+        if write_headers:
+            writer.writerow(headers)
+        writer.writerow(row)
 
 # ========== Status Persistence ===========
 
@@ -235,7 +265,7 @@ def bot_main_loop():
     global trade_count, profit
     while True:
         new_pools = get_new_liquidity_pools()
-        if new_pools:
+        if new_pools and LIVE_MODE:
             best_pool = new_pools[0]
             token = best_pool["token"]
             wallet = get_next_wallet()

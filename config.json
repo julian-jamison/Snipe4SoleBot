@@ -30,6 +30,7 @@
 
     },
     "api_keys": {
+        "live_mode": true,
         "solana_rpc_url": "https://mainnet.helius-rpc.com/?api-key=3b31521d-eeb6-4665-b500-08a071ba3263"
     }
 }

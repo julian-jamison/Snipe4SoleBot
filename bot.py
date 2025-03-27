@@ -14,6 +14,7 @@ from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
 from telegram_notifications import send_telegram_message
+from telegram_command_handler import status, wallets, pause, resume
 from decrypt_config import config
 from utils import log_trade_result
 
@@ -213,8 +214,6 @@ async def run_telegram_command_listener(token):
     print("🤖 Telegram command listener running...")
     with open(TELEGRAM_LOCK_FILE, "w") as f:
         f.write("started")
-
-    from telegram_command_handler import status, wallets, pause, resume
 
     async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Bot is alive and responding.")

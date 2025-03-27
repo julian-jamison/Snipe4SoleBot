@@ -88,6 +88,8 @@ def get_next_wallet():
 
 def load_portfolio():
     if not os.path.exists(PORTFOLIO_FILE):
+        with open(PORTFOLIO_FILE, "w") as f:
+            json.dump({}, f)
         return {}
     with open(PORTFOLIO_FILE, "r") as f:
         return json.load(f)
@@ -133,17 +135,13 @@ def save_bot_status():
 def load_bot_status():
     global start_time, trade_count, profit
     if not os.path.exists(STATUS_FILE):
-        # Initialize it if missing
         save_bot_status()
         return
-    try:
-        with open(STATUS_FILE, "r") as f:
-            data = json.load(f)
-            start_time = data.get("start_time", time.time())
-            trade_count = data.get("trade_count", 0)
-            profit = data.get("profit", 0)
-    except Exception as e:
-        print(f"⚠️ Failed to load bot status: {e}")
+    with open(STATUS_FILE, "r") as f:
+        data = json.load(f)
+        start_time = data.get("start_time", time.time())
+        trade_count = data.get("trade_count", 0)
+        profit = data.get("profit", 0)
 
 load_bot_status()
 

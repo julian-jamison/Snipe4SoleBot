@@ -10,10 +10,8 @@ WALLETS_FILE = "wallets.json"
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
-
-    print(f"📩 Received /status from chat_id={update.effective_chat.id}")
+    print("📩 /status command received")
+    ...
 
     try:
         with open(STATUS_FILE, "r") as f:
@@ -68,3 +66,8 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.path.exists("pause_flag"):
         os.remove("pause_flag")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
+
+async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("📩 /debug command received")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Bot is alive and responding.")
+

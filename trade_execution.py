@@ -61,15 +61,31 @@ def get_new_liquidity_pools():
 
     return sorted(new_pools, key=lambda x: x["liquidity"], reverse=True)
 
-def load_mock_pools():
-    """Loads mock liquidity pool data for backtesting."""
+# def load_mock_pools():
+#     """Loads mock liquidity pool data for backtesting."""
+#     try:
+#         with open(MOCK_DATA_FILE, "r") as f:
+#             mock_data = json.load(f)
+#             return sorted(mock_data, key=lambda x: x["liquidity"], reverse=True)
+#     except Exception as e:
+#         print(f"⚠️ Could not load mock pool data: {e}")
+#         return []
+from solana.rpc.api import Client
+
+SOLANA_RPC_URL = config["solana_rpc_url"]  # Add to your config.json
+
+def get_wallet_balance(wallet_address=None):
+    """Fetch actual SOL balance for the given wallet."""
     try:
-        with open(MOCK_DATA_FILE, "r") as f:
-            mock_data = json.load(f)
-            return sorted(mock_data, key=lambda x: x["liquidity"], reverse=True)
+        wallet_address = wallet_address or wallets[0]  # Default to first wallet if none given
+        client = Client(SOLANA_RPC_URL)
+        response = client.get_balance(wallet_address)
+        lamports = response['result']['value']
+        return lamports / 1e9  # Convert lamports to SOL
     except Exception as e:
-        print(f"⚠️ Could not load mock pool data: {e}")
-        return []
+        print(f"⚠️ Failed to fetch balance: {e}")
+        return 0
+
 
 def get_market_volatility():
     """Simulates fetching market volatility (replace with real API if needed)."""

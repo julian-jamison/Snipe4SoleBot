@@ -229,6 +229,22 @@ async def run_telegram_command_listener(token):
 
     await app.run_polling()
 
+# ========== Dry Trade Simulation ===========
+
+def simulate_dry_trade():
+    token = "DryToken123"
+    wallet = get_next_wallet()
+    buy_price = round(random.uniform(0.1, 1.0), 4)
+    quantity = round(random.uniform(1, 10), 2)
+
+    update_portfolio(token, "buy", buy_price, quantity, wallet)
+    sell_price = round(buy_price * 1.1, 4)
+    update_portfolio(token, "sell", sell_price, quantity, wallet)
+
+    send_telegram_message(
+        f"🧪 Dry Trade Complete:\nBought {quantity} {token} at ${buy_price} → Sold at ${sell_price}\nWallet: {wallet}"
+    )
+
 # ========== Bot Main Loop ===========
 
 def bot_main_loop():
@@ -256,6 +272,7 @@ def bot_main_loop():
 if __name__ == "__main__":
     enforce_singleton()
     send_startup_message_once()
+    simulate_dry_trade()
     Thread(target=bot_main_loop, daemon=True).start()
     nest_asyncio.apply()
     try:

@@ -245,6 +245,17 @@ def simulate_dry_trade():
         f"🧪 Dry Trade Complete:\nBought {quantity} {token} at ${buy_price} → Sold at ${sell_price}\nWallet: {wallet}"
     )
 
+# ========== Auto-Sell Simulation ===========
+
+def simulate_auto_sell():
+    token = "SimSellToken"
+    wallet = get_next_wallet()
+    quantity = round(random.uniform(2, 5), 2)
+    price = round(random.uniform(0.5, 1.5), 4)
+    update_portfolio(token, "buy", price, quantity, wallet)
+    update_portfolio(token, "sell", price * 1.05, quantity, wallet)
+    send_telegram_message(f"💰 Auto-Sell Simulated: Sold {quantity} {token} from wallet {wallet} at ${price * 1.05:.4f}")
+
 # ========== Bot Main Loop ===========
 
 def bot_main_loop():
@@ -273,6 +284,7 @@ if __name__ == "__main__":
     enforce_singleton()
     send_startup_message_once()
     simulate_dry_trade()
+    simulate_auto_sell()
     Thread(target=bot_main_loop, daemon=True).start()
     nest_asyncio.apply()
     try:

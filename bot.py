@@ -8,6 +8,7 @@ import asyncio
 import random
 import requests
 import atexit
+import bot_token from config
 
 import nest_asyncio
 from telegram import Update, Bot

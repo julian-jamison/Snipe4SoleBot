@@ -59,6 +59,37 @@ solana_client = Client(SOLANA_RPC_URL)
 
 # ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
 
+# ========== Telegram Setup ==========
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+def safe_telegram_message(bot, chat_id, message):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.send_message(chat_id=chat_id, text=message))
+        print(f"📩 Telegram message sent safely: {message}")
+    except Exception as e:
+        print(f"❌ Failed to send Telegram message safely: {e}")
+
+TRADE_SETTINGS = config["trade_settings"]
+LIVE_MODE = config.get("live_mode", False)
+
+STATUS_FILE = "bot_status.json"
+PORTFOLIO_FILE = "portfolio.json"
+WALLETS_FILE = "wallets.json"
+STARTUP_LOCK_FILE = "bot_started.lock"
+TELEGRAM_LOCK_FILE = "telegram_listener.lock"
+PID_LOCK_FILE = "snipe4solebot.pid"
+TRADE_LOG_CSV = "trade_log.csv"
+
+SOLANA_RPC_URL = config.get("solana_rpc_url", "https://api.mainnet-beta.solana.com")
+solana_client = Client(SOLANA_RPC_URL)
+
+
 # ========== PID Locking ==========
 
 def enforce_singleton():

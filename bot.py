@@ -16,48 +16,11 @@ import nest_asyncio
 from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
-from telegram_notifications import send_telegram_message_async, safe_telegram_message
+from telegram_notifications import send_telegram_message_async
 from decrypt_config import config
 from utils import log_trade_result
 from solana.rpc.api import Client
-
-# ========== Telegram Setup ==========
-TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
-TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-TRADE_SETTINGS = config["trade_settings"]
-LIVE_MODE = config.get("live_mode", False)
-
-STATUS_FILE = "bot_status.json"
-PORTFOLIO_FILE = "portfolio.json"
-WALLETS_FILE = "wallets.json"
-STARTUP_LOCK_FILE = "bot_started.lock"
-TELEGRAM_LOCK_FILE = "telegram_listener.lock"
-PID_LOCK_FILE = "snipe4solebot.pid"
-TRADE_LOG_CSV = "trade_log.csv"
-
-SOLANA_RPC_URL = config.get("solana_rpc_url", "https://api.mainnet-beta.solana.com")
-solana_client = Client(SOLANA_RPC_URL)
-
-# ========== Google Sheets Logging ==========
-# SHEET_NAME = "Snipe4SoleBot_Trades"
-# SHEET_CREDS_FILE = "gspread_credentials.json"
-# scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-# try:
-#     creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDS_FILE, scope)
-#     gspread_client = gspread.authorize(creds)
-#     sheet = gspread_client.open(SHEET_NAME).sheet1
-# except Exception as e:
-#     print(f"⚠️ Google Sheets logging disabled: {e}")
-#     sheet = None
-
-# start_time = time.time()
-# trade_count = 0
-# profit = 0
-# wallet_index = 0
-
-# ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
+from telegram_command_handler import run_telegram_command_listener
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -66,7 +29,11 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 def safe_telegram_message(bot, chat_id, message):
     try:
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         if loop.is_closed():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -89,8 +56,26 @@ TRADE_LOG_CSV = "trade_log.csv"
 SOLANA_RPC_URL = config.get("solana_rpc_url", "https://api.mainnet-beta.solana.com")
 solana_client = Client(SOLANA_RPC_URL)
 
+# ========== Google Sheets Logging ==========
+SHEET_NAME = "Snipe4SoleBot_Trades"
+SHEET_CREDS_FILE = "gspread_credentials.json"
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+try:
+    creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDS_FILE, scope)
+    gspread_client = gspread.authorize(creds)
+    sheet = gspread_client.open(SHEET_NAME).sheet1
+except Exception as e:
+    print(f"⚠️ Google Sheets logging disabled: {e}")
+    sheet = None
 
-# ========== PID Locking ==========
+start_time = time.time()
+trade_count = 0
+profit = 0
+wallet_index = 0
+
+ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
+
+# ========== PID Locking ===========
 
 def enforce_singleton():
     try:
@@ -212,13 +197,10 @@ import signal
 original_loop = asyncio.get_event_loop()
 nest_asyncio.apply()
 
-# This is a workaround to re-open the event loop if it's closed
 if original_loop.is_closed():
     asyncio.set_event_loop(asyncio.new_event_loop())
 
 # ========== Bot Threads & Startup ==========
-
-from telegram_command_handler import run_telegram_command_listener
 
 def bot_main_loop():
     global trade_count, profit
@@ -236,13 +218,11 @@ def main():
         asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except Exception as e:
         print(f"❌ Critical failure in bot startup: {e}")
-        safe_telegram_message(f"❌ Bot failed to start: {e}")
+        safe_telegram_message(bot, TELEGRAM_CHAT_ID, f"❌ Bot failed to start: {e}")
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
-        safe_telegram_message(f"❌ Fatal crash on boot: {fatal}")
-
-
+        safe_telegram_message(bot, TELEGRAM_CHAT_ID, f"❌ Fatal crash on boot: {fatal}")

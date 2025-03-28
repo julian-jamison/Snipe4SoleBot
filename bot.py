@@ -59,7 +59,7 @@ solana_client = Client(SOLANA_RPC_URL)
 
 # ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
 
-# ========== PID Locking ===========
+# ========== PID Locking ==========
 
 def enforce_singleton():
     try:
@@ -80,6 +80,18 @@ def cleanup_pid_lock():
 def cleanup_telegram_lock():
     if os.path.exists(TELEGRAM_LOCK_FILE):
         os.remove(TELEGRAM_LOCK_FILE)
+
+# ========== Safe Telegram Wrapper ==========
+
+def safe_telegram_message(message):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.run_coroutine_threadsafe(send_telegram_message_async(message), loop)
+        else:
+            asyncio.run(send_telegram_message_async(message))
+    except Exception as e:
+        print(f"⚠️ Could not safely send Telegram message: {e}")
 
 # ========== Load Wallets ===========
 
@@ -166,7 +178,6 @@ def log_trade_csv(token, action, price, quantity, wallet):
         if write_headers:
             writer.writerow(headers)
         writer.writerow(row)
-
 
 # def log_trade_gsheet(token, action, price, quantity, wallet):
 #     if sheet:

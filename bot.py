@@ -167,11 +167,25 @@ def log_trade_csv(token, action, price, quantity, wallet):
             writer.writerow(headers)
         writer.writerow(row)
 
+import asyncio
 
-def log_trade_gsheet(token, action, price, quantity, wallet):
-    if sheet:
-        row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
-        try:
-            sheet.append_row(row)
-        except Exception as e:
-            print(f"⚠️ Failed to log trade to Google Sheet: {e}")
+async def send_telegram_message_async(message):
+    try:
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    except RuntimeError as e:
+        if "event loop is closed" in str(e):
+            print("⚠️ Telegram loop is closed. Skipping message.")
+        else:
+            raise e
+    except Exception as e:
+        print(f"❌ Failed to send Telegram message: {e}")
+
+
+
+# def log_trade_gsheet(token, action, price, quantity, wallet):
+#     if sheet:
+#         row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
+#         try:
+#             sheet.append_row(row)
+#         except Exception as e:
+#             print(f"⚠️ Failed to log trade to Google Sheet: {e}")

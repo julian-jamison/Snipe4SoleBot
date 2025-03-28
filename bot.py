@@ -10,7 +10,7 @@ import requests
 import atexit
 import csv
 # import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+# from oauth2client.service_account import ServiceAccountCredentials
 
 import nest_asyncio
 from telegram import Update, Bot
@@ -29,6 +29,10 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 async def safe_telegram_message(message):
     try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         print(f"📩 Telegram message sent safely: {message}")
     except Exception as e:
@@ -60,12 +64,12 @@ solana_client = Client(SOLANA_RPC_URL)
 #     print(f"⚠️ Google Sheets logging disabled: {e}")
 #     sheet = None
 
-# start_time = time.time()
-# trade_count = 0
-# profit = 0
-# wallet_index = 0
+start_time = time.time()
+trade_count = 0
+profit = 0
+wallet_index = 0
 
-# ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
+ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
 
 # ========== PID Locking ===========
 
@@ -192,7 +196,7 @@ nest_asyncio.apply()
 if original_loop.is_closed():
     asyncio.set_event_loop(asyncio.new_event_loop())
 
-# ========== Bot Threads & Startup ==========
+# ========== Bot Threads & Startup ===========
 
 def bot_main_loop():
     global trade_count, profit
@@ -202,19 +206,24 @@ def bot_main_loop():
 
 def main():
     enforce_singleton()
-    asyncio.run(safe_telegram_message("✅ Snipe4SoleBot is now running."))
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(safe_telegram_message("✅ Snipe4SoleBot is now running."))
 
     Thread(target=bot_main_loop, daemon=True).start()
 
     try:
-        asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+        loop.run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except Exception as e:
         print(f"❌ Critical failure in bot startup: {e}")
-        asyncio.run(safe_telegram_message(f"❌ Bot failed to start: {e}"))
+        loop.run_until_complete(safe_telegram_message(f"❌ Bot failed to start: {e}"))
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
-        asyncio.run(safe_telegram_message(f"❌ Fatal crash on boot: {fatal}"))
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        loop.run_until_complete(safe_telegram_message(f"❌ Fatal crash on boot: {fatal}"))

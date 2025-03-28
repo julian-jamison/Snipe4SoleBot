@@ -9,7 +9,7 @@ import random
 import requests
 import atexit
 import csv
-# import gspread
+import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 import nest_asyncio
@@ -27,17 +27,9 @@ TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-def safe_telegram_message(bot, chat_id, message):
+async def safe_telegram_message(message):
     try:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        loop.run_until_complete(bot.send_message(chat_id=chat_id, text=message))
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         print(f"📩 Telegram message sent safely: {message}")
     except Exception as e:
         print(f"❌ Failed to send Telegram message safely: {e}")
@@ -169,7 +161,7 @@ def update_portfolio(token, action, price, quantity, wallet):
 
     save_portfolio(portfolio)
     log_trade_csv(token, action, price, quantity, wallet)
-    # log_trade_gsheet(token, action, price, quantity, wallet)
+    log_trade_gsheet(token, action, price, quantity, wallet)
 
 # ========== Trade Logging ===========
 
@@ -183,13 +175,13 @@ def log_trade_csv(token, action, price, quantity, wallet):
             writer.writerow(headers)
         writer.writerow(row)
 
-# def log_trade_gsheet(token, action, price, quantity, wallet):
-#     if sheet:
-#         row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
-#         try:
-#             sheet.append_row(row)
-#         except Exception as e:
-#             print(f"⚠️ Failed to log trade to Google Sheet: {e}")
+def log_trade_gsheet(token, action, price, quantity, wallet):
+    if sheet:
+        row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
+        try:
+            sheet.append_row(row)
+        except Exception as e:
+            print(f"⚠️ Failed to log trade to Google Sheet: {e}")
 
 # ========== Fix asyncio event loop for shutdown Telegram calls ===========
 import signal
@@ -210,7 +202,7 @@ def bot_main_loop():
 
 def main():
     enforce_singleton()
-    send_startup_message_once()
+    safe_telegram_message("✅ Snipe4SoleBot is now running.")
 
     Thread(target=bot_main_loop, daemon=True).start()
 
@@ -218,11 +210,11 @@ def main():
         asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     except Exception as e:
         print(f"❌ Critical failure in bot startup: {e}")
-        safe_telegram_message(bot, TELEGRAM_CHAT_ID, f"❌ Bot failed to start: {e}")
+        asyncio.run(safe_telegram_message(f"❌ Bot failed to start: {e}"))
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
-        safe_telegram_message(bot, TELEGRAM_CHAT_ID, f"❌ Fatal crash on boot: {fatal}")
+        asyncio.run(safe_telegram_message(f"❌ Fatal crash on boot: {fatal}"))

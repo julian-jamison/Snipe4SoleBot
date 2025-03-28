@@ -185,7 +185,16 @@ nest_asyncio.apply()
 if original_loop.is_closed():
     asyncio.set_event_loop(asyncio.new_event_loop())
 
-# ========== Start Main Bot ===========
+# ========== Bot Threads & Startup ==========
+
+from telegram_command_handler import run_telegram_command_listener
+
+def bot_main_loop():
+    global trade_count, profit
+    while True:
+        # Your trading logic should be triggered here
+        time.sleep(10)
+
 def main():
     enforce_singleton()
     send_startup_message_once()
@@ -204,4 +213,5 @@ if __name__ == "__main__":
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
         safe_telegram_message(f"❌ Fatal crash on boot: {fatal}")
+
 

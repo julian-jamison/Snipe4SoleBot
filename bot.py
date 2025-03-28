@@ -16,7 +16,7 @@ import nest_asyncio
 from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
-from telegram_notifications import send_telegram_message_async
+from telegram_notifications import send_telegram_message_async, safe_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
 from solana.rpc.api import Client
@@ -80,18 +80,6 @@ def cleanup_pid_lock():
 def cleanup_telegram_lock():
     if os.path.exists(TELEGRAM_LOCK_FILE):
         os.remove(TELEGRAM_LOCK_FILE)
-
-# ========== Safe Telegram Wrapper ==========
-
-def safe_telegram_message(message):
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.run_coroutine_threadsafe(send_telegram_message_async(message), loop)
-        else:
-            asyncio.run(send_telegram_message_async(message))
-    except Exception as e:
-        print(f"⚠️ Could not safely send Telegram message: {e}")
 
 # ========== Load Wallets ===========
 

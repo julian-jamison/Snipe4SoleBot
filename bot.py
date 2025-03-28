@@ -184,3 +184,24 @@ nest_asyncio.apply()
 # This is a workaround to re-open the event loop if it's closed
 if original_loop.is_closed():
     asyncio.set_event_loop(asyncio.new_event_loop())
+
+# ========== Start Main Bot ===========
+def main():
+    enforce_singleton()
+    send_startup_message_once()
+
+    Thread(target=bot_main_loop, daemon=True).start()
+
+    try:
+        asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    except Exception as e:
+        print(f"❌ Critical failure in bot startup: {e}")
+        safe_telegram_message(f"❌ Bot failed to start: {e}")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as fatal:
+        print(f"❌ Fatal crash in __main__: {fatal}")
+        safe_telegram_message(f"❌ Fatal crash on boot: {fatal}")
+

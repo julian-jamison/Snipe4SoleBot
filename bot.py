@@ -48,7 +48,7 @@ TRADE_LOG_CSV = "trade_log.csv"
 SOLANA_RPC_URL = config.get("solana_rpc_url", "https://api.mainnet-beta.solana.com")
 solana_client = Client(SOLANA_RPC_URL)
 
-# # ========== Google Sheets Logging ==========
+# ========== Google Sheets Logging ==========
 # SHEET_NAME = "Snipe4SoleBot_Trades"
 # SHEET_CREDS_FILE = "gspread_credentials.json"
 # scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -202,7 +202,7 @@ def bot_main_loop():
 
 def main():
     enforce_singleton()
-    safe_telegram_message("✅ Snipe4SoleBot is now running.")
+    asyncio.run(safe_telegram_message("✅ Snipe4SoleBot is now running."))
 
     Thread(target=bot_main_loop, daemon=True).start()
 

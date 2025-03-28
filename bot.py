@@ -204,26 +204,28 @@ def bot_main_loop():
         # Your trading logic should be triggered here
         time.sleep(10)
 
-def main():
+async def async_main():
     enforce_singleton()
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(safe_telegram_message("✅ Snipe4SoleBot is now running."))
+    await safe_telegram_message("✅ Snipe4SoleBot is now running.")
 
     Thread(target=bot_main_loop, daemon=True).start()
 
     try:
-        loop.run_until_complete(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+        await run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
     except Exception as e:
         print(f"❌ Critical failure in bot startup: {e}")
-        loop.run_until_complete(safe_telegram_message(f"❌ Bot failed to start: {e}"))
+        await safe_telegram_message(f"❌ Bot failed to start: {e}")
+
+def main():
+    asyncio.run(async_main())
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        loop.run_until_complete(safe_telegram_message(f"❌ Fatal crash on boot: {fatal}"))
+        try:
+            asyncio.run(safe_telegram_message(f"❌ Fatal crash on boot: {fatal}"))
+        except:
+            print("⚠️ Failed to send fatal crash alert (event loop unavailable)")
+

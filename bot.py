@@ -9,7 +9,7 @@ import random
 import requests
 import atexit
 import csv
-import gspread
+# import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 import nest_asyncio
@@ -48,24 +48,24 @@ TRADE_LOG_CSV = "trade_log.csv"
 SOLANA_RPC_URL = config.get("solana_rpc_url", "https://api.mainnet-beta.solana.com")
 solana_client = Client(SOLANA_RPC_URL)
 
-# ========== Google Sheets Logging ==========
-SHEET_NAME = "Snipe4SoleBot_Trades"
-SHEET_CREDS_FILE = "gspread_credentials.json"
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-try:
-    creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDS_FILE, scope)
-    gspread_client = gspread.authorize(creds)
-    sheet = gspread_client.open(SHEET_NAME).sheet1
-except Exception as e:
-    print(f"⚠️ Google Sheets logging disabled: {e}")
-    sheet = None
+# # ========== Google Sheets Logging ==========
+# SHEET_NAME = "Snipe4SoleBot_Trades"
+# SHEET_CREDS_FILE = "gspread_credentials.json"
+# scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+# try:
+#     creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDS_FILE, scope)
+#     gspread_client = gspread.authorize(creds)
+#     sheet = gspread_client.open(SHEET_NAME).sheet1
+# except Exception as e:
+#     print(f"⚠️ Google Sheets logging disabled: {e}")
+#     sheet = None
 
-start_time = time.time()
-trade_count = 0
-profit = 0
-wallet_index = 0
+# start_time = time.time()
+# trade_count = 0
+# profit = 0
+# wallet_index = 0
 
-ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
+# ALLOWED_TOKENS = set(config.get("allowed_tokens", []))
 
 # ========== PID Locking ===========
 
@@ -161,7 +161,7 @@ def update_portfolio(token, action, price, quantity, wallet):
 
     save_portfolio(portfolio)
     log_trade_csv(token, action, price, quantity, wallet)
-    log_trade_gsheet(token, action, price, quantity, wallet)
+    # log_trade_gsheet(token, action, price, quantity, wallet)
 
 # ========== Trade Logging ===========
 
@@ -175,13 +175,13 @@ def log_trade_csv(token, action, price, quantity, wallet):
             writer.writerow(headers)
         writer.writerow(row)
 
-def log_trade_gsheet(token, action, price, quantity, wallet):
-    if sheet:
-        row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
-        try:
-            sheet.append_row(row)
-        except Exception as e:
-            print(f"⚠️ Failed to log trade to Google Sheet: {e}")
+# def log_trade_gsheet(token, action, price, quantity, wallet):
+#     if sheet:
+#         row = [time.strftime("%Y-%m-%d %H:%M:%S"), wallet, token, action, f"{price:.6f}", f"{quantity:.6f}"]
+#         try:
+#             sheet.append_row(row)
+#         except Exception as e:
+#             print(f"⚠️ Failed to log trade to Google Sheet: {e}")
 
 # ========== Fix asyncio event loop for shutdown Telegram calls ===========
 import signal

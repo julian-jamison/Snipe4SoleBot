@@ -174,3 +174,13 @@ def log_trade_csv(token, action, price, quantity, wallet):
 #             sheet.append_row(row)
 #         except Exception as e:
 #             print(f"⚠️ Failed to log trade to Google Sheet: {e}")
+
+# ========== Fix asyncio event loop for shutdown Telegram calls ===========
+import signal
+
+original_loop = asyncio.get_event_loop()
+nest_asyncio.apply()
+
+# This is a workaround to re-open the event loop if it's closed
+if original_loop.is_closed():
+    asyncio.set_event_loop(asyncio.new_event_loop())

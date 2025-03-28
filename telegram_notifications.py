@@ -23,11 +23,18 @@ async def _send_async_message(message):
     except Exception as e:
         print(f"❌ Telegram message failed: {e}")
 
-def send_telegram_message(message: str, retries=3):
-    """Sends a Telegram alert with retry and flood control handling."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("⚠️ Telegram bot token or chat ID not set. Message not sent.")
-        return
+def safe_telegram_message(message: str):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
+        print(f"📩 Telegram message sent: {message}")
+    except TelegramError as e:
+        print(f"❌ Failed to send Telegram message: {e}")
+    except Exception as e:
+        print(f"⚠️ Telegram error: {e}")
 
     for attempt in range(retries):
         try:

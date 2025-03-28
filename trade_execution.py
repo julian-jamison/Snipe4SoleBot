@@ -10,7 +10,7 @@ from portfolio import add_position, remove_position, get_position, get_all_posit
 # from ai_prediction import predict_market_trend
 
 trade_settings = config["trade_settings"]
-export BACKTEST_MODE=false
+BACKTEST_MODE = False
 MOCK_DATA_FILE = "mock_pools.json"
 
 DEX_APIS = {

@@ -167,20 +167,6 @@ def log_trade_csv(token, action, price, quantity, wallet):
             writer.writerow(headers)
         writer.writerow(row)
 
-import asyncio
-
-async def send_telegram_message_async(message):
-    try:
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-    except RuntimeError as e:
-        if "event loop is closed" in str(e):
-            print("⚠️ Telegram loop is closed. Skipping message.")
-        else:
-            raise e
-    except Exception as e:
-        print(f"❌ Failed to send Telegram message: {e}")
-
-
 
 # def log_trade_gsheet(token, action, price, quantity, wallet):
 #     if sheet:

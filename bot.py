@@ -25,6 +25,17 @@ TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
+async def safe_send_telegram_message(message):
+    try:
+        await send_telegram_message_async(message)
+    except RuntimeError as e:
+        if 'event loop is closed' in str(e):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(send_telegram_message_async(message))
+        else:
+            print(f"❌ Failed to send Telegram message safely: {e}")
+
 TRADE_SETTINGS = config["trade_settings"]
 LIVE_MODE = config.get("live_mode", False)
 
@@ -163,7 +174,7 @@ async def bot_main_loop():
 async def async_main():
     enforce_singleton()
     nest_asyncio.apply()
-    await send_telegram_message_async("✅ Snipe4SoleBot is now running.")
+    await safe_send_telegram_message("✅ Snipe4SoleBot is now running.")
     asyncio.create_task(bot_main_loop())
     asyncio.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     while True:
@@ -177,7 +188,7 @@ def main():
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(send_telegram_message_async(f"❌ Fatal crash on boot: {fatal}"))
+            loop.run_until_complete(safe_send_telegram_message(f"❌ Fatal crash on boot: {fatal}"))
         except:
             print("⚠️ Failed to send fatal crash alert (event loop unavailable)")
 

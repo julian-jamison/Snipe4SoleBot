@@ -173,7 +173,9 @@ def send_startup():
 def main():
     enforce_singleton()
     nest_asyncio.apply()
-    asyncio.run(async_main())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(async_main())
 
 async def async_main():
     send_startup()

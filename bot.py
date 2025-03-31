@@ -163,10 +163,12 @@ def bot_main_loop():
 
 def run_background_tasks():
     Thread(target=bot_main_loop, daemon=True).start()
-    asyncio.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
+    loop = asyncio.get_running_loop()
+    loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
 
 def send_startup():
-    asyncio.create_task(send_telegram_message_async("✅ Snipe4SoleBot is now running."))
+    loop = asyncio.get_running_loop()
+    loop.create_task(send_telegram_message_async("✅ Snipe4SoleBot is now running."))
 
 def main():
     enforce_singleton()

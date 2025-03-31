@@ -155,37 +155,23 @@ def log_trade_csv(token, action, price, quantity, wallet):
 
 # ========== Bot Threads & Startup ===========
 
-def bot_main_loop():
+async def bot_main_loop():
     global trade_count, profit
     while True:
-        # Your trading logic should be triggered here
-        time.sleep(10)
-
-def run_background_tasks():
-    Thread(target=bot_main_loop, daemon=True).start()
-    loop = asyncio.get_running_loop()
-    loop.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
-
-def send_startup():
-    loop = asyncio.get_running_loop()
-    loop.create_task(send_telegram_message_async("✅ Snipe4SoleBot is now running."))
-
-def main():
-    enforce_singleton()
-    nest_asyncio.apply()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(async_main())
+        await asyncio.sleep(10)  # Replace with trading logic if needed
 
 async def async_main():
-    send_startup()
-    run_background_tasks()
+    enforce_singleton()
+    nest_asyncio.apply()
+    await send_telegram_message_async("✅ Snipe4SoleBot is now running.")
+    asyncio.create_task(bot_main_loop())
+    asyncio.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     while True:
         await asyncio.sleep(3600)
 
-if __name__ == "__main__":
+def main():
     try:
-        main()
+        asyncio.run(async_main())
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
         try:
@@ -194,3 +180,6 @@ if __name__ == "__main__":
             loop.run_until_complete(send_telegram_message_async(f"❌ Fatal crash on boot: {fatal}"))
         except:
             print("⚠️ Failed to send fatal crash alert (event loop unavailable)")
+
+if __name__ == "__main__":
+    main()

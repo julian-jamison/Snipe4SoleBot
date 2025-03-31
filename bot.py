@@ -173,7 +173,9 @@ def send_startup():
 def main():
     enforce_singleton()
     nest_asyncio.apply()
-    asyncio.run(async_main())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(async_main())
 
 async def async_main():
     send_startup()
@@ -187,6 +189,8 @@ if __name__ == "__main__":
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
         try:
-            asyncio.run(send_telegram_message_async(f"❌ Fatal crash on boot: {fatal}"))
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(send_telegram_message_async(f"❌ Fatal crash on boot: {fatal}"))
         except:
             print("⚠️ Failed to send fatal crash alert (event loop unavailable)")

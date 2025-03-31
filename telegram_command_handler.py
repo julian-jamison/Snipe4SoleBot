@@ -1,12 +1,30 @@
 import json
 import os
 import time
+import asyncio
 from telegram import Update
 from telegram.ext import ContextTypes
 
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
+
+
+def safe_send_telegram_message(context, message):
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(context.bot.send_message(chat_id=context._chat_id, text=message))
+    except RuntimeError as e:
+        if 'no current event loop' in str(e) or 'event loop is closed' in str(e):
+            try:
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                new_loop.run_until_complete(context.bot.send_message(chat_id=context._chat_id, text=message))
+                new_loop.close()
+            except Exception as inner_e:
+                print(f"❌ Failed to send Telegram message with new loop: {inner_e}")
+        else:
+            print(f"❌ Failed to send Telegram message: {e}")
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):

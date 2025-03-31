@@ -9,8 +9,6 @@ import random
 import requests
 import atexit
 import csv
-# import gspread
-# from oauth2client.service_account import ServiceAccountCredentials
 
 import nest_asyncio
 from telegram import Update, Bot
@@ -26,13 +24,6 @@ from telegram_command_handler import run_telegram_command_listener
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-async def safe_telegram_message(message):
-    try:
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        print(f"📩 Telegram message sent safely: {message}")
-    except Exception as e:
-        print(f"❌ Failed to send Telegram message safely: {e}")
 
 TRADE_SETTINGS = config["trade_settings"]
 LIVE_MODE = config.get("live_mode", False)
@@ -170,20 +161,23 @@ def bot_main_loop():
         # Your trading logic should be triggered here
         time.sleep(10)
 
-async def async_main():
-    enforce_singleton()
-    await safe_telegram_message("✅ Snipe4SoleBot is now running.")
-
+def run_background_tasks():
     Thread(target=bot_main_loop, daemon=True).start()
+    asyncio.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
 
-    try:
-        await run_telegram_command_listener(TELEGRAM_BOT_TOKEN)
-    except Exception as e:
-        print(f"❌ Critical failure in bot startup: {e}")
-        await safe_telegram_message(f"❌ Bot failed to start: {e}")
+def send_startup():
+    asyncio.create_task(send_telegram_message_async("✅ Snipe4SoleBot is now running."))
 
 def main():
+    enforce_singleton()
+    nest_asyncio.apply()
     asyncio.run(async_main())
+
+async def async_main():
+    send_startup()
+    run_background_tasks()
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     try:
@@ -191,6 +185,6 @@ if __name__ == "__main__":
     except Exception as fatal:
         print(f"❌ Fatal crash in __main__: {fatal}")
         try:
-            asyncio.run(safe_telegram_message(f"❌ Fatal crash on boot: {fatal}"))
+            asyncio.run(send_telegram_message_async(f"❌ Fatal crash on boot: {fatal}"))
         except:
             print("⚠️ Failed to send fatal crash alert (event loop unavailable)")

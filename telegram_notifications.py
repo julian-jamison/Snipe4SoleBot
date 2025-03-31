@@ -17,24 +17,25 @@ TRADE_LOG_FILE = "trade_log.json"
 # Initialize bot
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-async def _send_async_message(message):
+async def _async_send(msg: str):
     try:
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+        print(f"📩 Telegram message sent: {msg}")
     except Exception as e:
-        print(f"❌ Telegram message failed: {e}")
-
-def safe_telegram_message(message: str):
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
-        print(f"📩 Telegram message sent: {message}")
-    except TelegramError as e:
         print(f"❌ Failed to send Telegram message: {e}")
-    except Exception as e:
-        print(f"⚠️ Telegram error: {e}")
+
+def send_telegram_message_async(message: str):
+    try:
+        loop = asyncio.get_running_loop()
+        asyncio.create_task(_async_send(message))
+    except RuntimeError:
+        # No running loop — fallback for sync context like exceptions or shutdown
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(_async_send(message))
+        finally:
+            loop.close()
 
     for attempt in range(retries):
         try:

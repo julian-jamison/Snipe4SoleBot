@@ -9,31 +9,23 @@ STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 
-def safe_send_telegram_message(bot, chat_id, message):
-    async def _send():
-        try:
-            await bot.send_message(chat_id=chat_id, text=message)
-            print(f"📩 Telegram message sent safely: {message}")
-        except Exception as e:
-            print(f"❌ Failed to send Telegram message safely (async): {e}")
-
+async def safe_send_telegram_message(bot, chat_id, message):
     try:
-        loop = asyncio.get_running_loop()
-        if loop.is_running():
-            loop.create_task(_send())
-        else:
-            loop.run_until_complete(_send())
+        await bot.send_message(chat_id=chat_id, text=message)
+        print(f"📩 Telegram message sent safely: {message}")
     except RuntimeError as e:
-        if 'no current event loop' in str(e) or 'event loop is closed' in str(e):
+        if 'event loop is closed' in str(e) or 'no current event loop' in str(e):
             try:
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                new_loop.run_until_complete(_send())
-                new_loop.close()
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(bot.send_message(chat_id=chat_id, text=message))
+                loop.close()
             except Exception as inner_e:
                 print(f"❌ Failed to send Telegram message with new loop: {inner_e}")
         else:
             print(f"❌ Failed to send Telegram message: {e}")
+    except Exception as e:
+        print(f"❌ Failed to send Telegram message: {e}")
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):

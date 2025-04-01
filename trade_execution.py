@@ -123,6 +123,9 @@ def execute_trade(action, token_address):
         print("💰 Max session budget reached. Skipping trade.")
         return
 
+    volatility = get_market_volatility()
+    quantity = calculate_trade_size(volatility)
+
     # # AI-driven market prediction gate
     # trend, confidence = predict_market_trend(token_address)
     # if action == "buy" and trend != "buy":
@@ -136,16 +139,14 @@ def execute_trade(action, token_address):
     # quantity = calculate_trade_size(volatility) * (confidence if action == "buy" else 1)
 
         # Skip AI prediction temporarily
-    volatility = get_market_volatility()
-    quantity = calculate_trade_size(volatility)
-
-
     
 
-    if BACKTEST_MODE:
+   if BACKTEST_MODE:
         price = round(random.uniform(0.001, 0.02), 6)
         print(f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}")
-        safe_send_telegram_message(f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}")
+        asyncio.create_task(safe_send_telegram_message(
+            f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}"
+        ))
         log_trade_result(action, token_address, price, quantity, 0, "simulated")
         session_spent += price * quantity
         last_trade_time = time.time()
@@ -163,7 +164,9 @@ def execute_trade(action, token_address):
 
     if action == "buy":
         print(f"🛒 Buying {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})")
-        safe_send_telegram_message(f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})")
+        asyncio.create_task(safe_send_telegram_message(
+            f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
+        ))
         log_trade_result("buy", token_address, price, quantity, 0, "success")
         add_position(token_address, quantity, price, "dex")
 
@@ -172,7 +175,9 @@ def execute_trade(action, token_address):
         entry_price = position["price"] if position else price
         profit_loss = round((price - entry_price) * quantity, 6)
         print(f"📤 Selling {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
-        safe_send_telegram_message(f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
+        asyncio.create_task(safe_send_telegram_message(
+            f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
+        ))
         log_trade_result("sell", token_address, price, quantity, profit_loss, "success")
         remove_position(token_address)
 

@@ -4,6 +4,8 @@ import time
 import asyncio
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler
+from telegram_notifications import status, wallets, pause, resume, debug
 
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
@@ -101,3 +103,12 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Debug mode is working.")
+
+async def run_telegram_command_listener(token):
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("wallets", wallets))
+    app.add_handler(CommandHandler("pause", pause))
+    app.add_handler(CommandHandler("resume", resume))
+    app.add_handler(CommandHandler("debug", debug))
+    await app.run_polling()

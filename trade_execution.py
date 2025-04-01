@@ -4,7 +4,7 @@ import os
 import random
 import json
 from utils import fetch_price, log_trade_result
-from telegram_notifications import send_telegram_message
+from telegram_notifications import safe_send_telegram_message
 from decrypt_config import config
 from portfolio import add_position, remove_position, get_position, get_all_positions
 # from ai_prediction import predict_market_trend

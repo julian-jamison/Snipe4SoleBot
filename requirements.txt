@@ -1,7 +1,4 @@
-python-telegram-bot==20.0b1
-httpx==0.23.3
-solana==0.27.0
-requests>=2.28.0
+requests
 pycryptodome
 tensorflow
 numpy
@@ -11,5 +8,8 @@ boto3
 schedule==1.2.1
 matplotlib
 pandas
+python-telegram-bot==20.3
+httpx==0.23.3
+solana==0.30.0
+requests>=2.28.0
 nest-asyncio>=1.5.6
-asyncio==3.4.3

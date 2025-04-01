@@ -33,6 +33,19 @@ async def safe_send_telegram_message(message):
     except Exception as e:
         print(f"❌ Failed to send Telegram message: {e}")
 
+def schedule_safe_telegram_message(message):
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(safe_send_telegram_message(message))
+    except RuntimeError:
+        # If no running loop (e.g. inside thread), fallback
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(safe_send_telegram_message(message))
+            loop.close()
+        except Exception as e:
+            print(f"❌ Failed to send Telegram message in fallback: {e}")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:

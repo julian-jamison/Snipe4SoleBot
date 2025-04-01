@@ -2,10 +2,10 @@ import json
 import os
 import time
 import asyncio
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import ContextTypes
 from telegram.ext import ApplicationBuilder, CommandHandler
-from telegram_notifications import status, wallets, pause, resume, debug
+from decrypt_config import config
 
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"

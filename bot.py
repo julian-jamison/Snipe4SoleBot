@@ -14,7 +14,7 @@ import nest_asyncio
 from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from trade_execution import execute_trade, check_for_auto_sell, calculate_trade_size, get_market_volatility
-from telegram_notifications import send_telegram_message_async
+from telegram_notifications import safe_send_telegram_message
 from decrypt_config import config
 from utils import log_trade_result
 from solana.rpc.api import Client

@@ -141,12 +141,10 @@ def execute_trade(action, token_address):
         # Skip AI prediction temporarily
     
 
-   if BACKTEST_MODE:
+       if BACKTEST_MODE:
         price = round(random.uniform(0.001, 0.02), 6)
         print(f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}")
-        asyncio.create_task(safe_send_telegram_message(
-            f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}"
-        ))
+        safe_send_telegram_message(f"[BACKTEST] {action.upper()} {quantity} of {token_address} at ${price:.4f}")
         log_trade_result(action, token_address, price, quantity, 0, "simulated")
         session_spent += price * quantity
         last_trade_time = time.time()

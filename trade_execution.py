@@ -72,7 +72,7 @@ def get_new_liquidity_pools():
 #         return []
 from solana.rpc.api import Client
 
-SOLANA_RPC_URL = config["solana_rpc_url"]  # Add to your config.json
+SOLANA_RPC_URL = config.get("solana_rpc_url", "https://mainnet.helius-rpc.com/?api-key=3b31521d-eeb6-4665-b500-08a071ba3263")
 
 def get_wallet_balance(wallet_address=None):
     """Fetch actual SOL balance for the given wallet."""

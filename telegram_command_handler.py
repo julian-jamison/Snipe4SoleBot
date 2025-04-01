@@ -11,16 +11,20 @@ STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 
-async def safe_send_telegram_message(bot, chat_id, message):
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+async def safe_send_telegram_message(message):
     try:
-        await bot.send_message(chat_id=chat_id, text=message)
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         print(f"📩 Telegram message sent safely: {message}")
     except RuntimeError as e:
         if 'event loop is closed' in str(e) or 'no current event loop' in str(e):
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                loop.run_until_complete(bot.send_message(chat_id=chat_id, text=message))
+                loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
                 loop.close()
             except Exception as inner_e:
                 print(f"❌ Failed to send Telegram message with new loop: {inner_e}")
@@ -103,6 +107,7 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Debug mode is working.")
+
 
 async def run_telegram_command_listener(token):
     app = ApplicationBuilder().token(token).build()

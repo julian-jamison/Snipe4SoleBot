@@ -1,5 +1,5 @@
 from telegram.ext import Updater, CommandHandler
-from telegram_notifications import send_telegram_message
+from telegram_notifications import safe_send_telegram_message
 from trade_execution import execute_trade
 from health_check import send_health_update
 from restore_backup import restore_from_gdrive

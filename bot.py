@@ -19,6 +19,8 @@ from decrypt_config import config
 from utils import log_trade_result
 from solana.rpc.api import Client
 from telegram_command_handler import run_telegram_command_listener
+from monitor_and_trade import start_sniper_thread
+
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -179,8 +181,8 @@ async def bot_main_loop():
 async def async_main():
     enforce_singleton()
     nest_asyncio.apply()
+    start_sniper_thread()
     safe_send_telegram_message("✅ Snipe4SoleBot is now running.")
-    asyncio.create_task(bot_main_loop())
     asyncio.create_task(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))
     while True:
         await asyncio.sleep(3600)

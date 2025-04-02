@@ -106,3 +106,11 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Debug mode is working.")
+
+def send_telegram_message(message):
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(safe_send_telegram_message(message))
+    except RuntimeError:
+        asyncio.run(safe_send_telegram_message(message))
+

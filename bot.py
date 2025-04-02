@@ -21,6 +21,9 @@ from solana.rpc.api import Client
 from telegram_command_handler import run_telegram_command_listener
 from monitor_and_trade import start_sniper_thread
 
+import os
+print("🔍 DEBUG: CONFIG_ENCRYPTION_KEY =", os.getenv("CONFIG_ENCRYPTION_KEY"))
+
 
 # ========== Telegram Setup ==========
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]

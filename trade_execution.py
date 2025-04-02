@@ -60,6 +60,31 @@ def calculate_trade_size(volatility):
     return base_quantity
 
 
+def is_token_suspicious(token_address):
+    try:
+        # Check token metadata from Solana token list or external registry
+        url = f"https://public-api.solscan.io/token/meta?tokenAddress={token_address}"
+        headers = {"accept": "application/json"}
+        response = requests.get(url, headers=headers, timeout=5)
+
+        if response.status_code != 200:
+            return True  # treat unknown as suspicious
+
+        data = response.json()
+        suspicious_indicators = [
+            data.get("name", "").lower() in ["", "token", "unknown"],
+            "scam" in data.get("name", "").lower(),
+            data.get("symbol", "").lower() in ["scam", "fake"],
+            not data.get("verified", False)
+        ]
+
+        return any(suspicious_indicators)
+
+    except Exception as e:
+        print(f"⚠️ Scam check failed: {e}")
+        return True
+
+
 def send_trade_transaction(token_address, quantity, price, side):
     try:
         quote_url = "https://quote-api.jup.ag/v6/swap"
@@ -92,6 +117,10 @@ def send_trade_transaction(token_address, quantity, price, side):
 
 def execute_trade(action, token_address):
     global session_spent, last_trade_time
+
+    if token_address in BAD_TOKENS or is_token_suspicious(token_address):
+        print(f"🚫 Skipping suspicious token: {token_address}")
+        return
 
     if time.time() - last_trade_time < TRADE_COOLDOWN_SECONDS:
         print("🕒 Cooldown active. Waiting before next trade.")

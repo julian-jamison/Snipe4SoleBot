@@ -6,6 +6,8 @@ from telegram_notifications import safe_send_telegram_message
 from whale_tracking import get_whale_transactions
 from utils import get_token_price, should_buy_token, get_random_wallet
 
+print("🔥 monitor_and_trade.py is now LIVE")
+
 def send_telegram_message(message):
     try:
         loop = asyncio.get_running_loop()

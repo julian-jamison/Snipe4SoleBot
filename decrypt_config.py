@@ -3,7 +3,7 @@ import json
 import base64
 import os
 
-raw_key = os.getenv("CONFIG_ENCRYPTION_KEY")
+raw_key = "Snipe4$ole@Bot_2025_secure_key"
 if not raw_key:
     raise EnvironmentError(f"❌ CONFIG_ENCRYPTION_KEY not found! ENV: {dict(os.environ)}")
 

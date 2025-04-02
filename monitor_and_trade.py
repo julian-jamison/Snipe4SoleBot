@@ -1,12 +1,11 @@
 import time
 import asyncio
+import threading
 from trade_execution import buy_token_multi_wallet, sell_token_auto_withdraw
 from mempool_monitor import get_new_liquidity_pools
 from telegram_notifications import safe_send_telegram_message
 from whale_tracking import get_whale_transactions
 from utils import get_token_price, should_buy_token, get_random_wallet
-
-print("🔥 monitor_and_trade.py is now LIVE")
 
 def send_telegram_message(message):
     try:
@@ -15,15 +14,19 @@ def send_telegram_message(message):
     except RuntimeError:
         asyncio.run(safe_send_telegram_message(message))
 
-def monitor_and_trade():
+def sniper_loop():
     """Main sniper loop with automatic profit withdrawals."""
     print("🚀 Sniper bot running with Automatic Withdrawals...")
+    send_telegram_message("🚀 Snipe4SoleBot is LIVE and scanning for new liquidity pools!")
 
     while True:
         new_pools = get_new_liquidity_pools()
 
         for pool in new_pools:
-            token_address = pool["baseMint"]
+            token_address = pool.get("baseMint") or pool.get("mint")
+            if not token_address:
+                continue
+
             print(f"🔹 New liquidity detected: {token_address}")
             send_telegram_message(f"🚀 New liquidity detected: {token_address}")
 
@@ -41,25 +44,33 @@ def monitor_and_trade():
                 selected_wallet = get_random_wallet()
                 send_telegram_message(f"🛒 Buying {token_address} with wallet {selected_wallet.pubkey()}.")
 
-                buy_token_multi_wallet(token_address, selected_wallet)  # Pass wallet for multi-wallet support
+                buy_token_multi_wallet(token_address, selected_wallet)
                 initial_price = get_token_price(token_address)
 
                 # Monitor price and auto-sell if conditions met
                 while True:
                     current_price = get_token_price(token_address)
+                    if not current_price:
+                        continue
+
                     profit = (current_price - initial_price) / initial_price * 100
 
-                    if profit >= 10:  # Auto-sell at 10% profit
-                        sell_token_auto_withdraw(token_address, selected_wallet)  # Auto-withdraw after sell
+                    if profit >= 10:
+                        sell_token_auto_withdraw(token_address, selected_wallet)
                         send_telegram_message(f"✅ Sold {token_address} for {profit:.2f}% profit! Profits withdrawn.")
                         break
-                    elif profit <= -5:  # Auto-stop-loss at -5%
+                    elif profit <= -5:
                         sell_token_auto_withdraw(token_address, selected_wallet)
                         send_telegram_message(f"❌ Stop-loss triggered! Sold {token_address} at {profit:.2f}% loss.")
                         break
 
-                    time.sleep(2)  # Adjust frequency based on market speed
+                    time.sleep(2)
             else:
                 send_telegram_message(f"❌ Skipping {token_address}. Doesn't meet buy criteria.")
 
-        time.sleep(1)  # Reduce wait time for faster reaction
+        time.sleep(1)
+
+def start_sniper_thread():
+    thread = threading.Thread(target=sniper_loop, daemon=True)
+    thread.start()
+    return thread

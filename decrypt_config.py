@@ -3,7 +3,10 @@ import json
 import base64
 import os
 
-ENCRYPTION_KEY = os.getenv("CONFIG_ENCRYPTION_KEY").encode().ljust(32, b'\0')
+raw_key = os.getenv("CONFIG_ENCRYPTION_KEY")
+if not raw_key:
+    raise EnvironmentError("❌ CONFIG_ENCRYPTION_KEY is not set in the environment.")
+ENCRYPTION_KEY = raw_key.encode().ljust(32, b'\0')
 
 def decrypt_config():
     """Decrypts config.enc and returns config data."""

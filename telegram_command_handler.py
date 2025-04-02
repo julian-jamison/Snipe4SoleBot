@@ -17,19 +17,11 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 async def safe_send_telegram_message(message):
     try:
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        local_bot = Bot(token=TELEGRAM_BOT_TOKEN)  # Create it fresh inside the async context
+        await local_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         print(f"📩 Telegram message sent safely: {message}")
     except RuntimeError as e:
-        if 'event loop is closed' in str(e) or 'no current event loop' in str(e):
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
-                loop.close()
-            except Exception as inner_e:
-                print(f"❌ Failed to send Telegram message with new loop: {inner_e}")
-        else:
-            print(f"❌ Failed to send Telegram message: {e}")
+        print(f"❌ RuntimeError sending Telegram message: {e}")
     except Exception as e:
         print(f"❌ Failed to send Telegram message: {e}")
 
@@ -38,7 +30,6 @@ def schedule_safe_telegram_message(message):
         loop = asyncio.get_running_loop()
         loop.create_task(safe_send_telegram_message(message))
     except RuntimeError:
-        # If no running loop (e.g. inside thread), fallback
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)

@@ -1,9 +1,17 @@
 import time
+import asyncio
 from trade_execution import buy_token_multi_wallet, sell_token_auto_withdraw
 from mempool_monitor import get_new_liquidity_pools
-from telegram_notifications import send_telegram_message
+from telegram_notifications import safe_send_telegram_message
 from whale_tracking import get_whale_transactions
 from utils import get_token_price, should_buy_token, get_random_wallet
+
+def send_telegram_message(message):
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(safe_send_telegram_message(message))
+    except RuntimeError:
+        asyncio.run(safe_send_telegram_message(message))
 
 def monitor_and_trade():
     """Main sniper loop with automatic profit withdrawals."""
@@ -11,7 +19,7 @@ def monitor_and_trade():
 
     while True:
         new_pools = get_new_liquidity_pools()
-        
+
         for pool in new_pools:
             token_address = pool["baseMint"]
             print(f"🔹 New liquidity detected: {token_address}")
@@ -33,12 +41,12 @@ def monitor_and_trade():
 
                 buy_token_multi_wallet(token_address, selected_wallet)  # Pass wallet for multi-wallet support
                 initial_price = get_token_price(token_address)
-                
+
                 # Monitor price and auto-sell if conditions met
                 while True:
                     current_price = get_token_price(token_address)
                     profit = (current_price - initial_price) / initial_price * 100
-                    
+
                     if profit >= 10:  # Auto-sell at 10% profit
                         sell_token_auto_withdraw(token_address, selected_wallet)  # Auto-withdraw after sell
                         send_telegram_message(f"✅ Sold {token_address} for {profit:.2f}% profit! Profits withdrawn.")
@@ -47,7 +55,7 @@ def monitor_and_trade():
                         sell_token_auto_withdraw(token_address, selected_wallet)
                         send_telegram_message(f"❌ Stop-loss triggered! Sold {token_address} at {profit:.2f}% loss.")
                         break
-                    
+
                     time.sleep(2)  # Adjust frequency based on market speed
             else:
                 send_telegram_message(f"❌ Skipping {token_address}. Doesn't meet buy criteria.")

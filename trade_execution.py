@@ -11,7 +11,7 @@ from decrypt_config import config
 from portfolio import add_position, remove_position, get_position, get_all_positions
 from solana.rpc.api import Client
 from solana.transaction import Transaction
-from solana.keypair import Keypair
+from solders.keypair import Keypair
 from solana.rpc.types import TxOpts
 from solders.pubkey import Pubkey
 from solders.signature import Signature

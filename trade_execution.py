@@ -62,13 +62,12 @@ def calculate_trade_size(volatility):
 
 def is_token_suspicious(token_address):
     try:
-        # Check token metadata from Solana token list or external registry
         url = f"https://public-api.solscan.io/token/meta?tokenAddress={token_address}"
         headers = {"accept": "application/json"}
         response = requests.get(url, headers=headers, timeout=5)
 
         if response.status_code != 200:
-            return True  # treat unknown as suspicious
+            return True
 
         data = response.json()
         suspicious_indicators = [
@@ -150,9 +149,15 @@ def execute_trade(action, token_address):
     if action == "buy":
         print(f"🛒 Buying {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})")
         send_trade_transaction(token_address, quantity, price, side="buy")
-        asyncio.create_task(safe_send_telegram_message(
-            f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
-        ))
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(safe_send_telegram_message(
+                f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
+            ))
+        except RuntimeError:
+            asyncio.run(safe_send_telegram_message(
+                f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
+            ))
         log_trade_result("buy", token_address, price, quantity, 0, "success")
         add_position(token_address, quantity, price, "dex")
 
@@ -162,9 +167,15 @@ def execute_trade(action, token_address):
         profit_loss = round((price - entry_price) * quantity, 6)
         print(f"📤 Selling {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
         send_trade_transaction(token_address, quantity, price, side="sell")
-        asyncio.create_task(safe_send_telegram_message(
-            f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
-        ))
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(safe_send_telegram_message(
+                f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
+            ))
+        except RuntimeError:
+            asyncio.run(safe_send_telegram_message(
+                f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
+            ))
         log_trade_result("sell", token_address, price, quantity, profit_loss, "success")
         remove_position(token_address)
 

@@ -14,23 +14,21 @@ TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-async def safe_send_telegram_message(message):
+async def safe_send_telegram_message(message: str):
     try:
         await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        print(f"📩 Telegram message sent safely: {message}")
+        print(f"📩 Telegram message sent: {message}")
     except RuntimeError as e:
-        if 'event loop is closed' in str(e) or 'no current event loop' in str(e):
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
-                loop.close()
-            except Exception as inner_e:
-                print(f"❌ Failed to send Telegram message with new loop: {inner_e}")
+        if "event loop is closed" in str(e) or "no current event loop" in str(e):
+            print("🔁 Creating new event loop to send Telegram message...")
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
+            loop.close()
         else:
             print(f"❌ Failed to send Telegram message: {e}")
     except Exception as e:
-        print(f"❌ Failed to send Telegram message: {e}")
+        print(f"❌ General error sending Telegram message: {e}")
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):

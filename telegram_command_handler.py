@@ -17,6 +17,8 @@ TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
+telegram_listener_started = False
+
 async def safe_send_telegram_message(message: str):
     print(f"🔄 Attempting to send Telegram message: {message[:40]}...")
     try:
@@ -24,22 +26,21 @@ async def safe_send_telegram_message(message: str):
             local_bot = Bot(token=TELEGRAM_BOT_TOKEN, request=AiohttpRequest(session))
             await local_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
             print(f"📩 Telegram message sent safely: {message}")
+    except RuntimeError as e:
+        if "event loop is closed" in str(e) or "no current event loop" in str(e):
+            try:
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                new_loop.run_until_complete(
+                    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+                )
+                new_loop.close()
+            except Exception as inner_e:
+                print(f"❌ Fallback loop failed to send Telegram message: {inner_e}")
+        else:
+            print(f"❌ Failed to send Telegram message: {e}")
     except Exception as e:
         print(f"❌ Failed to send Telegram message: {e}")
-
-def schedule_safe_telegram_message(message: str):
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(safe_send_telegram_message(message))
-    except RuntimeError:
-        # If outside running loop (e.g., in a thread or during shutdown)
-        try:
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            new_loop.run_until_complete(safe_send_telegram_message(message))
-            new_loop.close()
-        except Exception as e:
-            print(f"❌ Fallback loop failed to send Telegram message: {e}")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
@@ -117,6 +118,14 @@ async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def run_telegram_command_listener(token):
+    global telegram_listener_started
+    if telegram_listener_started:
+        print("⚠️ Telegram listener already running — skipping initialization.")
+        return
+
+    telegram_listener_started = True
+    print("✅ Starting Telegram command listener...")
+
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("wallets", wallets))

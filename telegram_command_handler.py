@@ -2,6 +2,8 @@ import json
 import os
 import time
 import asyncio
+import aiohttp
+from telegram.request import AiohttpRequest
 from telegram import Update, Bot
 from telegram.ext import ContextTypes
 from telegram.ext import ApplicationBuilder, CommandHandler
@@ -15,28 +17,29 @@ TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-async def safe_send_telegram_message(message):
+async def safe_send_telegram_message(message: str):
+    print(f"🔄 Attempting to send Telegram message: {message[:40]}...")
     try:
-        local_bot = Bot(token=TELEGRAM_BOT_TOKEN)  # Create it fresh inside the async context
-        await local_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        print(f"📩 Telegram message sent safely: {message}")
-    except RuntimeError as e:
-        print(f"❌ RuntimeError sending Telegram message: {e}")
+        async with aiohttp.ClientSession() as session:
+            local_bot = Bot(token=TELEGRAM_BOT_TOKEN, request=AiohttpRequest(session))
+            await local_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+            print(f"📩 Telegram message sent safely: {message}")
     except Exception as e:
         print(f"❌ Failed to send Telegram message: {e}")
 
-def schedule_safe_telegram_message(message):
+def schedule_safe_telegram_message(message: str):
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(safe_send_telegram_message(message))
     except RuntimeError:
+        # If outside running loop (e.g., in a thread or during shutdown)
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(safe_send_telegram_message(message))
-            loop.close()
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            new_loop.run_until_complete(safe_send_telegram_message(message))
+            new_loop.close()
         except Exception as e:
-            print(f"❌ Failed to send Telegram message in fallback: {e}")
+            print(f"❌ Fallback loop failed to send Telegram message: {e}")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:

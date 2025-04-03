@@ -26,3 +26,4 @@ def decrypt_config():
 
 # ✅ Now it's safe to call the function:
 config = decrypt_config()
+print("🔍 Decrypted config:", config)

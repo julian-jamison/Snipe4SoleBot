@@ -3,42 +3,40 @@ import os
 import time
 import asyncio
 import aiohttp
+import threading
 from telegram.request import AiohttpRequest
 from telegram import Update, Bot
 from telegram.ext import ContextTypes
 from telegram.ext import ApplicationBuilder, CommandHandler
 from decrypt_config import config
 
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
+
 STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 
-TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
-TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
+# Persistent session and bot instance
+session = aiohttp.ClientSession()
+request = AiohttpRequest(session)
+bot = Bot(token=TELEGRAM_BOT_TOKEN, request=request)
 
 telegram_listener_started = False
+
+def schedule_safe_telegram_message(message: str):
+    def run_in_loop():
+        try:
+            asyncio.run(safe_send_telegram_message(message))
+        except RuntimeError as e:
+            print(f"⚠️ Loop error fallback: {e}")
+    threading.Thread(target=run_in_loop).start()
 
 async def safe_send_telegram_message(message: str):
     print(f"🔄 Attempting to send Telegram message: {message[:40]}...")
     try:
-        async with aiohttp.ClientSession() as session:
-            local_bot = Bot(token=TELEGRAM_BOT_TOKEN, request=AiohttpRequest(session))
-            await local_bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-            print(f"📩 Telegram message sent safely: {message}")
-    except RuntimeError as e:
-        if "event loop is closed" in str(e) or "no current event loop" in str(e):
-            try:
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                new_loop.run_until_complete(
-                    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-                )
-                new_loop.close()
-            except Exception as inner_e:
-                print(f"❌ Fallback loop failed to send Telegram message: {inner_e}")
-        else:
-            print(f"❌ Failed to send Telegram message: {e}")
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        print(f"📩 Telegram message sent safely: {message}")
     except Exception as e:
         print(f"❌ Failed to send Telegram message: {e}")
 
@@ -62,7 +60,6 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = f"⚠️ Could not load bot status: {e}"
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
-
 
 async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
@@ -97,13 +94,11 @@ async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
-
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /pause from chat_id={update.effective_chat.id}")
     with open("pause_flag", "w") as f:
         f.write("1")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
-
 
 async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /resume from chat_id={update.effective_chat.id}")
@@ -111,11 +106,9 @@ async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove("pause_flag")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
 
-
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Debug mode is working.")
-
 
 async def run_telegram_command_listener(token):
     global telegram_listener_started

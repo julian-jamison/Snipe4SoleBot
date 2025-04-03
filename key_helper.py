@@ -9,7 +9,7 @@ ENCRYPTED_FILE = "config.enc"
 
 def generate_keypair():
     kp = Keypair()
-    signer_key_hex = kp.as_bytes().hex()
+    signer_key_hex = kp.secret().hex()
 
     print(f"✅ Generated signer key:\n{signer_key_hex}")
     print(f"🔒 Updating {CONFIG_FILE} with signer_private_key...")

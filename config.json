@@ -25,8 +25,8 @@
             "min_profit_target": 5
       },
         "allowed_tokens": [
-  "So11111111111111111111111111111111111111112",  // SOL
-  "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"   // USDT
+  "So11111111111111111111111111111111111111112",
+  "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"
     ]
 
     },

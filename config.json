@@ -3,7 +3,8 @@
         "wallet_1": "8kTfti4dQvBTntbUAW6dPV59dgJ9HggB3Lrieu6XQRT2",
         "wallet_2": "GftQC1mdY57HLdXYoj9zRv3Tjh6yRimbHmKRjXbLw98E",
         "wallet_3": "C1esW6EaKALihWAXunE2idFRj2iZ7yswoNBS1PycbrGC",
-        "cold_wallet": "D2CoD3E6UkbErdUtQXj7BbK8VkPiEF3KqGUq6cf9PRWv"
+        "cold_wallet": "D2CoD3E6UkbErdUtQXj7BbK8VkPiEF3KqGUq6cf9PRWv",
+        "signer_private_key": "<hex-encoded 32-byte key>" 
     },
     "telegram": {
         "bot_token": "7734018739:AAFQ2P5E-2cWlLGrV9GR_d-m_pEjnTlKTo0",

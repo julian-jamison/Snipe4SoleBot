@@ -4,7 +4,8 @@
         "wallet_2": "GftQC1mdY57HLdXYoj9zRv3Tjh6yRimbHmKRjXbLw98E",
         "wallet_3": "C1esW6EaKALihWAXunE2idFRj2iZ7yswoNBS1PycbrGC",
         "cold_wallet": "D2CoD3E6UkbErdUtQXj7BbK8VkPiEF3KqGUq6cf9PRWv",
-        "signer_private_key": "fe2c430a79a503ace7021601e4cadbec9f787e9d01e6c96cb40383915d6f8fb2"
+        "signer_private_key": "fe2c430a79a503ace7021601e4cadbec9f787e9d01e6c96cb40383915d6f8fb2",
+        "signer_public_key": "663BhXSkycG6eS3tj2sR1d3nBZKM2fQbTxk8AvuTCdMA"
     },
     "telegram": {
         "bot_token": "7734018739:AAFQ2P5E-2cWlLGrV9GR_d-m_pEjnTlKTo0",

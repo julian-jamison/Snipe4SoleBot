@@ -6,7 +6,7 @@ import os
 raw_key = os.environ.get("CONFIG_ENCRYPTION_KEY")
 if not raw_key:
     raise EnvironmentError("❌ CONFIG_ENCRYPTION_KEY is not set in the environment.")
-ENCRYPTION_KEY = base64.urlsafe_b64decode(raw_key)
+ENCRYPTION_KEY = bytes.fromhex(raw_key)
 
 CONFIG_FILE = "config.json"
 ENCRYPTED_FILE = "config.enc"

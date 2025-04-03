@@ -113,7 +113,6 @@ async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def run_telegram_command_listener(token):
     global telegram_listener_started
     if telegram_listener_started:
-        print("⚠️ Telegram listener already running — skipping initialization.")
         return
 
     telegram_listener_started = True

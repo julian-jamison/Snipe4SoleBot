@@ -4,8 +4,10 @@ import time
 import asyncio
 import aiohttp
 import threading
+from telegram.request import _httpxrequest as AiohttpRequest
 from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler
 from decrypt_config import config
 
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
@@ -15,9 +17,12 @@ STATUS_FILE = "bot_status.json"
 PORTFOLIO_FILE = "portfolio.json"
 WALLETS_FILE = "wallets.json"
 
-# Persistent session and bot instance
-session = aiohttp.ClientSession()
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
+# Create the session inside the event loop
+async def create_session():
+    session = aiohttp.ClientSession()
+    request = AiohttpRequest(session)
+    bot = Bot(token=TELEGRAM_BOT_TOKEN, request=request)
+    return bot, session
 
 telegram_listener_started = False
 
@@ -32,6 +37,7 @@ def schedule_safe_telegram_message(message: str):
 async def safe_send_telegram_message(message: str):
     print(f"🔄 Attempting to send Telegram message: {message[:40]}...")
     try:
+        bot, _ = await create_session()  # Create bot session here
         await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         print(f"📩 Telegram message sent safely: {message}")
     except Exception as e:
@@ -122,10 +128,3 @@ async def run_telegram_command_listener(token):
     app.add_handler(CommandHandler("resume", resume))
     app.add_handler(CommandHandler("debug", debug))
     await app.run_polling()
-
-# To run the bot, use this
-if __name__ == "__main__":
-    try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-        asyncio.run(run_telegram_command_listener(TELEGRAM_BOT_TOKEN))

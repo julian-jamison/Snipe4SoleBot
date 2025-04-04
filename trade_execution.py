@@ -1,10 +1,8 @@
 import time
 import requests
-import os
-import random
 import json
-import base64
 import asyncio
+import base64
 from utils import fetch_price, log_trade_result
 from telegram_notifications import safe_send_telegram_message
 from decrypt_config import config
@@ -12,11 +10,13 @@ from portfolio import add_position, remove_position, get_position, get_all_posit
 from solana.rpc.api import Client
 from solana.transaction import Transaction
 from solders.keypair import Keypair
-# from solana.keypair import Keypair
 from solana.rpc.types import TxOpts
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 from solders.transaction import VersionedTransaction
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Bot
+from telegram.request import HTTPXRequest as AiohttpRequest
 
 trade_settings = config["trade_settings"]
 BACKTEST_MODE = False
@@ -32,11 +32,11 @@ last_trade_time = 0
 
 BAD_TOKENS = set(["BAD1", "SCAM2", "FAKE3"])
 
+# Initialize signer and Solana client
 signer = Keypair.from_bytes(bytes.fromhex(config["solana_wallets"]["signer_private_key"]))
-
 client = Client(SOLANA_RPC_URL)
 
-
+# Function to fetch wallet balance
 def get_wallet_balance(wallet_address=None):
     try:
         wallet_address = wallet_address or str(signer.pubkey())
@@ -47,11 +47,11 @@ def get_wallet_balance(wallet_address=None):
         print(f"⚠️ Failed to fetch balance: {e}")
         return 0
 
-
+# Function to calculate market volatility
 def get_market_volatility():
     return round(random.uniform(0.01, 0.06), 4)
 
-
+# Function to calculate trade size based on volatility
 def calculate_trade_size(volatility):
     base_quantity = 100
     if volatility > trade_settings["dynamic_risk_management"]["volatility_threshold"]:
@@ -60,7 +60,7 @@ def calculate_trade_size(volatility):
         return base_quantity * 1.5
     return base_quantity
 
-
+# Check if a token is suspicious
 def is_token_suspicious(token_address):
     try:
         url = f"https://public-api.solscan.io/token/meta?tokenAddress={token_address}"
@@ -84,7 +84,7 @@ def is_token_suspicious(token_address):
         print(f"⚠️ Scam check failed: {e}")
         return True
 
-
+# Send a trade transaction
 def send_trade_transaction(token_address, quantity, price, side):
     try:
         quote_url = "https://quote-api.jup.ag/v6/swap"
@@ -114,7 +114,7 @@ def send_trade_transaction(token_address, quantity, price, side):
         print(f"❌ Trade TX failed: {e}")
         return None
 
-
+# Execute the trade
 def execute_trade(action, token_address):
     global session_spent, last_trade_time
 
@@ -185,7 +185,7 @@ def execute_trade(action, token_address):
     time.sleep(2)
     return price
 
-
+# Check for auto-sell triggers based on profit/loss
 def check_for_auto_sell():
     for token in get_all_positions():
         position = get_position(token)

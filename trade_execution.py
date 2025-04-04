@@ -8,7 +8,6 @@ from telegram_notifications import safe_send_telegram_message
 from decrypt_config import config
 from portfolio import add_position, remove_position, get_position, get_all_positions
 from solana.rpc.api import Client
-from solana.transaction import Transaction
 from solders.keypair import Keypair
 from solana.rpc.types import TxOpts
 from solders.pubkey import Pubkey
@@ -17,6 +16,7 @@ from solders.transaction import VersionedTransaction
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram import Bot
 from telegram.request import HTTPXRequest as AiohttpRequest
+import aiohttp
 
 trade_settings = config["trade_settings"]
 BACKTEST_MODE = False
@@ -36,19 +36,19 @@ BAD_TOKENS = set(["BAD1", "SCAM2", "FAKE3"])
 signer = Keypair.from_bytes(bytes.fromhex(config["solana_wallets"]["signer_private_key"]))
 client = Client(SOLANA_RPC_URL)
 
-# Function to fetch wallet balance
-def get_wallet_balance(wallet_address=None):
+# Async function to fetch wallet balance
+async def get_wallet_balance(wallet_address=None):
     try:
         wallet_address = wallet_address or str(signer.pubkey())
-        response = client.get_balance(wallet_address)
+        response = await client.get_balance(wallet_address)
         lamports = response['result']['value']
         return lamports / 1e9
     except Exception as e:
         print(f"⚠️ Failed to fetch balance: {e}")
         return 0
 
-# Function to calculate market volatility
-def get_market_volatility():
+# Async function to calculate market volatility
+async def get_market_volatility():
     return round(random.uniform(0.01, 0.06), 4)
 
 # Function to calculate trade size based on volatility
@@ -61,16 +61,17 @@ def calculate_trade_size(volatility):
     return base_quantity
 
 # Check if a token is suspicious
-def is_token_suspicious(token_address):
+async def is_token_suspicious(token_address):
     try:
         url = f"https://public-api.solscan.io/token/meta?tokenAddress={token_address}"
         headers = {"accept": "application/json"}
-        response = requests.get(url, headers=headers, timeout=5)
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(url, headers=headers, timeout=5)
 
         if response.status_code != 200:
             return True
 
-        data = response.json()
+        data = await response.json()
         suspicious_indicators = [
             data.get("name", "").lower() in ["", "token", "unknown"],
             "scam" in data.get("name", "").lower(),
@@ -84,8 +85,8 @@ def is_token_suspicious(token_address):
         print(f"⚠️ Scam check failed: {e}")
         return True
 
-# Send a trade transaction
-def send_trade_transaction(token_address, quantity, price, side):
+# Async function to send a trade transaction
+async def send_trade_transaction(token_address, quantity, price, side):
     try:
         quote_url = "https://quote-api.jup.ag/v6/swap"
         user_pubkey = str(signer.pubkey())
@@ -98,27 +99,28 @@ def send_trade_transaction(token_address, quantity, price, side):
             "wrapUnwrapSOL": True,
             "dynamicSlippage": True
         }
-        route_response = requests.get(quote_url, params=params).json()
-        if "swapTransaction" not in route_response:
-            print(f"❌ No swapTransaction in Jupiter response: {route_response}")
-            return None
+        async with aiohttp.ClientSession() as session:
+            route_response = await session.get(quote_url, params=params).json()
+            if "swapTransaction" not in route_response:
+                print(f"❌ No swapTransaction in Jupiter response: {route_response}")
+                return None
 
-        swap_tx = base64.b64decode(route_response["swapTransaction"])
-        txn = VersionedTransaction.deserialize(swap_tx)
-        txn.sign([signer])
+            swap_tx = base64.b64decode(route_response["swapTransaction"])
+            txn = VersionedTransaction.deserialize(swap_tx)
+            txn.sign([signer])
 
-        sig = client.send_raw_transaction(txn.serialize(), opts=TxOpts(skip_confirmation=False, preflight_commitment="processed"))
-        print(f"🚀 Trade TX sent: https://solscan.io/tx/{sig['result']}")
-        return sig
+            sig = await client.send_raw_transaction(txn.serialize(), opts=TxOpts(skip_confirmation=False, preflight_commitment="processed"))
+            print(f"🚀 Trade TX sent: https://solscan.io/tx/{sig['result']}")
+            return sig
     except Exception as e:
         print(f"❌ Trade TX failed: {e}")
         return None
 
 # Execute the trade
-def execute_trade(action, token_address):
+async def execute_trade(action, token_address):
     global session_spent, last_trade_time
 
-    if token_address in BAD_TOKENS or is_token_suspicious(token_address):
+    if token_address in BAD_TOKENS or await is_token_suspicious(token_address):
         print(f"🚫 Skipping suspicious token: {token_address}")
         return
 
@@ -126,7 +128,7 @@ def execute_trade(action, token_address):
         print("🕒 Cooldown active. Waiting before next trade.")
         return
 
-    if get_wallet_balance() < MIN_WALLET_BALANCE_SOL:
+    if await get_wallet_balance() < MIN_WALLET_BALANCE_SOL:
         print("🚫 Wallet balance too low. Skipping trade.")
         return
 
@@ -134,10 +136,10 @@ def execute_trade(action, token_address):
         print("💰 Max session budget reached. Skipping trade.")
         return
 
-    volatility = get_market_volatility()
+    volatility = await get_market_volatility()
     quantity = calculate_trade_size(volatility)
 
-    price = fetch_price(token_address)
+    price = await fetch_price(token_address)
     if price is None:
         print("❌ Could not fetch price. Trade aborted.")
         return
@@ -149,16 +151,10 @@ def execute_trade(action, token_address):
 
     if action == "buy":
         print(f"🛒 Buying {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})")
-        send_trade_transaction(token_address, quantity, price, side="buy")
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(safe_send_telegram_message(
-                f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
-            ))
-        except RuntimeError:
-            asyncio.run(safe_send_telegram_message(
-                f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
-            ))
+        await send_trade_transaction(token_address, quantity, price, side="buy")
+        await safe_send_telegram_message(
+            f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
+        )
         log_trade_result("buy", token_address, price, quantity, 0, "success")
         add_position(token_address, quantity, price, "dex")
 
@@ -167,32 +163,25 @@ def execute_trade(action, token_address):
         entry_price = position["price"] if position else price
         profit_loss = round((price - entry_price) * quantity, 6)
         print(f"📤 Selling {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
-        send_trade_transaction(token_address, quantity, price, side="sell")
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(safe_send_telegram_message(
-                f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
-            ))
-        except RuntimeError:
-            asyncio.run(safe_send_telegram_message(
-                f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
-            ))
+        await send_trade_transaction(token_address, quantity, price, side="sell")
+        await safe_send_telegram_message(
+            f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
+        )
         log_trade_result("sell", token_address, price, quantity, profit_loss, "success")
         remove_position(token_address)
 
     session_spent += price * quantity
     last_trade_time = time.time()
-    time.sleep(2)
-    return price
+    await asyncio.sleep(2)
 
 # Check for auto-sell triggers based on profit/loss
-def check_for_auto_sell():
+async def check_for_auto_sell():
     for token in get_all_positions():
         position = get_position(token)
         if not position:
             continue
 
-        current_price = fetch_price(token)
+        current_price = await fetch_price(token)
         if current_price is None:
             continue
 
@@ -201,7 +190,8 @@ def check_for_auto_sell():
 
         if profit_pct >= trade_settings["profit_target"]:
             print(f"💰 Profit target hit for {token}. Auto-selling.")
-            execute_trade("sell", token)
+            await execute_trade("sell", token)
         elif profit_pct <= trade_settings["stop_loss"]:
             print(f"🔻 Stop-loss triggered for {token}. Auto-selling.")
-            execute_trade("sell", token)
+            await execute_trade("sell", token)
+

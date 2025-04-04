@@ -4,7 +4,7 @@ import time
 import asyncio
 import aiohttp
 import threading
-from telegram.request import AiohttpRequest
+from telegram.request import _httpxrequest as AiohttpRequest
 from telegram import Update, Bot
 from telegram.ext import ContextTypes
 from telegram.ext import ApplicationBuilder, CommandHandler

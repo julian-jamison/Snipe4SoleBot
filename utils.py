@@ -1,4 +1,4 @@
-import requests
+import aiohttp
 import json
 import os
 import logging
@@ -18,28 +18,30 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-def fetch_price(token_address):
+# Async function to fetch the price
+async def fetch_price(token_address):
     """Fetches the latest price of a token from CoinGecko and other DEX APIs as a backup."""
     urls = [
         f"https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses={token_address}&vs_currencies=usd",
         f"https://quote-api.jup.ag/v4/quote?inputMint={token_address}&outputMint=So11111111111111111111111111111111111111112"
     ]
 
-    for url in urls:
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
+    async with aiohttp.ClientSession() as session:
+        for url in urls:
+            try:
+                async with session.get(url) as response:
+                    response.raise_for_status()
+                    data = await response.json()
 
-            if "usd" in data.get(token_address, {}):
-                return data[token_address]["usd"]
-            if "data" in data:
-                quotes = data.get("data", [])
-                if quotes and isinstance(quotes, list):
-                    return quotes[0].get("outAmount", 0)
+                    if "usd" in data.get(token_address, {}):
+                        return data[token_address]["usd"]
+                    if "data" in data:
+                        quotes = data.get("data", [])
+                        if quotes and isinstance(quotes, list):
+                            return quotes[0].get("outAmount", 0)
 
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"⚠️ Error fetching price from {url}: {e}")
+            except aiohttp.ClientError as e:
+                logger.warning(f"⚠️ Error fetching price from {url}: {e}")
 
     return None
 

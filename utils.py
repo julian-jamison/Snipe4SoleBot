@@ -42,6 +42,8 @@ async def fetch_price(token_address):
 
             except aiohttp.ClientError as e:
                 logger.warning(f"⚠️ Error fetching price from {url}: {e}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"⚠️ Error decoding JSON response from {url}: {e}")
 
     return None
 
@@ -109,4 +111,4 @@ def restore_trade_log():
 
             logger.info("✅ Trade log restored from backup.")
     except Exception as e:
-        logger.error(f"❌ Failed to restore trade log: {e}")
+        logger.error(f"❌ Failed to restore trade log: {e}") 

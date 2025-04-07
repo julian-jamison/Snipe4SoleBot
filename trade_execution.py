@@ -68,7 +68,7 @@ async def is_token_suspicious(token_address):
         async with aiohttp.ClientSession() as session:
             response = await session.get(url, headers=headers, timeout=5)
 
-        if response.status_code != 200:
+        if response.status != 200:
             return True
 
         data = await response.json()
@@ -100,7 +100,8 @@ async def send_trade_transaction(token_address, quantity, price, side):
             "dynamicSlippage": True
         }
         async with aiohttp.ClientSession() as session:
-            route_response = await session.get(quote_url, params=params).json()
+            route_response = await session.get(quote_url, params=params)
+            route_response = await route_response.json()
             if "swapTransaction" not in route_response:
                 print(f"❌ No swapTransaction in Jupiter response: {route_response}")
                 return None
@@ -194,4 +195,3 @@ async def check_for_auto_sell():
         elif profit_pct <= trade_settings["stop_loss"]:
             print(f"🔻 Stop-loss triggered for {token}. Auto-selling.")
             await execute_trade("sell", token)
-

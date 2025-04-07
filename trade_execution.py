@@ -34,13 +34,13 @@ BAD_TOKENS = set(["BAD1", "SCAM2", "FAKE3"])
 
 # Initialize signer and Solana client
 signer = Keypair.from_bytes(bytes.fromhex(config["solana_wallets"]["signer_private_key"]))
-client = Client(SOLANA_RPC_URL)
+client = Client(SOLANA_RPC_URL)  # You might need to switch to an async client if available
 
 # Async function to fetch wallet balance
 async def get_wallet_balance(wallet_address=None):
     try:
         wallet_address = wallet_address or str(signer.pubkey())
-        response = await client.get_balance(wallet_address)
+        response = await client.get_balance(wallet_address)  # Ensure that client supports async
         lamports = response['result']['value']
         return lamports / 1e9
     except Exception as e:

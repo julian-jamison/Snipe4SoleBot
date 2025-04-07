@@ -68,7 +68,7 @@ async def is_token_suspicious(token_address):
         async with aiohttp.ClientSession() as session:
             response = await session.get(url, headers=headers, timeout=5)
 
-        if response.status != 200:
+        if response.status_code != 200:
             return True
 
         data = await response.json()
@@ -100,8 +100,7 @@ async def send_trade_transaction(token_address, quantity, price, side):
             "dynamicSlippage": True
         }
         async with aiohttp.ClientSession() as session:
-            route_response = await session.get(quote_url, params=params)
-            route_response = await route_response.json()
+            route_response = await session.get(quote_url, params=params).json()
             if "swapTransaction" not in route_response:
                 print(f"❌ No swapTransaction in Jupiter response: {route_response}")
                 return None

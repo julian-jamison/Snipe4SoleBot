@@ -1,7 +1,52 @@
 # 🚀 AI Crypto Trading Bot
 
 ## 📌 **Project Overview**
-This project is an AI-powered crypto trading bot that automatically detects market opportunities, tracks whale transactions, and executes trades on decentralized exchanges (DEXs). It also includes automated Telegram notifications and encryption for sensitive configuration files.
+Snipe4SoleBot is an automated Solana token trading bot that interacts with the Solana blockchain, enabling users to execute trades based on dynamic risk management strategies. It fetches real-time market data, evaluates volatility, and automatically buys or sells tokens in an effort to maximize profit and minimize loss. The bot integrates with Telegram to send notifications about trade actions and status updates.
+
+## 🎯 **Project Goals**
+Automated Trading: Automatically buys and sells tokens on the Solana blockchain based on pre-defined conditions and dynamic market analysis.
+
+Risk Management: Implements stop-loss, profit target, and dynamic risk management features to minimize losses and maximize profits.
+
+Multi-wallet Support: Supports multiple Solana wallets for trading and fund management.
+
+Real-time Market Analysis: Fetches real-time token prices and assesses market volatility to guide trading decisions.
+
+Telegram Integration: Sends real-time trade updates and status notifications through Telegram for better user monitoring.
+
+Error Logging & Backup: Logs trade activities and backs up trade logs to ensure the bot operates efficiently and transparently.
+
+## ⚙️ **Project Features**
+Automated Token Trades: Executes buy and sell operations automatically based on market volatility and user-defined thresholds.
+
+Dynamic Risk Management: Uses volatility thresholds to dynamically adjust trade sizes, stop-loss, and profit targets.
+
+Multi-Wallet Trading: Supports multiple Solana wallets, allowing diversified trading strategies.
+
+Auto-sell on Profit/Stop-Loss: Automatically triggers a sell operation when a token reaches a predefined profit target or stop-loss.
+
+Real-time Price Fetching: Fetches the latest prices from CoinGecko and other DEX APIs to ensure accurate trading decisions.
+
+Telegram Notifications: Sends notifications to a predefined Telegram chat about trade activities, status updates, and errors.
+
+Trade Logging: Logs each trade's details, including timestamps, action type, token address, quantity, price, profit/loss, and status.
+
+Log Backup and Restore: Backs up trade logs regularly to prevent data loss and ensures recovery in case of errors.
+
+## 💻 **Project Overview**
+Python: Main programming language for bot development.
+
+Solana Python SDK: Library for interacting with the Solana blockchain.
+
+Telegram API: For sending trade updates and messages to Telegram.
+
+Requests: For making HTTP requests to APIs like CoinGecko and Jupiter for price fetching.
+
+Asyncio and Aiohttp: For asynchronous operation and HTTP request handling.
+
+Git LFS: For handling large files within the repository.
+
+Logging: For error and trade logging purposes.
 
 ---
 

@@ -33,7 +33,7 @@ Trade Logging: Logs each trade's details, including timestamps, action type, tok
 
 Log Backup and Restore: Backs up trade logs regularly to prevent data loss and ensures recovery in case of errors.
 
-## 💻 **Project Overview**
+## 💻 **Technology**
 Python: Main programming language for bot development.
 
 Solana Python SDK: Library for interacting with the Solana blockchain.

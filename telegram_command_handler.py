@@ -79,6 +79,9 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             status_data = json.load(f)
         uptime = round((time.time() - status_data["start_time"]) / 60, 2)
 
-        msg = (
-            f"📈 *Bot Status*\n"
-            f"• Uptime:
+         msg = (
+            f"📈 Bot Status:\n"
+            f"• Uptime: {uptime} mins\n"
+            f"• Trades: {status_data['trade_count']}\n"
+            f"• Profit: {status_data['profit']} SOL"
+        )

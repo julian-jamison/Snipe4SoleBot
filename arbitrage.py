@@ -19,6 +19,17 @@ from portfolio import add_position, remove_position, get_position  :contentRefer
 from telegram_notifications import safe_send_telegram_message
 from decrypt_config import config
 
+# ─── thin adapter for arbitrage.py ─────────────────────────────────────────
+async def exec_trade_simple(side: str, token: str) -> bool:
+    """
+    Minimal adapter so arbitrage.py can call `execute_trade()` without needing
+    qty / wallet args.  Returns True on tx‑sig success, False otherwise.
+    """
+    sig = await execute_trade(side, token)
+    return bool(sig)
+
+success = await execute_trade("buy", token)
+
 _LOG = logging.getLogger("arbitrage")
 
 ###############################################################################
@@ -122,5 +133,3 @@ def start_arbitrage_loop(tokens: list[str] | None = None) -> asyncio.Task:
     if not tokens:
         raise ValueError("No tokens configured for arbitrage scanning.")
     return asyncio.create_task(_runner(tokens))
-
-success = await execute_trade("buy", token)

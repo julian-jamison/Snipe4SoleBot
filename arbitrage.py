@@ -133,3 +133,7 @@ def start_arbitrage_loop(tokens: list[str] | None = None) -> asyncio.Task:
     if not tokens:
         raise ValueError("No tokens configured for arbitrage scanning.")
     return asyncio.create_task(_runner(tokens))
+
+# (or inside __all__), re‑bind the name arbitrage expects:
+execute_trade = exec_trade_simple
+

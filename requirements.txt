@@ -10,6 +10,5 @@ pandas
 python-telegram-bot==20.0
 httpx==0.23.3
 solana==0.30.0
-solders==0.18.0       # NEW – explicit pin
 aiohttp>=3.9          # NEW – async HTTP client
 nest-asyncio>=1.5.6

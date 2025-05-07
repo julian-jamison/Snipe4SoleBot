@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 monitor_and_trade.py
 ~~~~~~~~~~~~~~~~~~~~
@@ -8,8 +10,6 @@ monitor_and_trade.py
 • Provides helpers for sending Telegram notifications safely from both
   sync threads and async tasks.
 """
-
-from __future__ import annotations
 
 import time
 import asyncio

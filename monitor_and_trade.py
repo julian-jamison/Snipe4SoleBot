@@ -4,145 +4,115 @@ from __future__ import annotations
 monitor_and_trade.py
 ~~~~~~~~~~~~~~~~~~~~
 
-• Starts the live‐liquidity **sniper loop** (runs in a daemon thread).
-• Starts the async **arbitrage loop** from arbitrage.py (runs in the
-  main asyncio event‑loop).
-• Provides helpers for sending Telegram notifications safely from both
-  sync threads and async tasks.
+• Runs the synchronous **sniper loop** in its own daemon thread
+• Starts the async **arbitrage loop** (from arbitrage.py) in the main event‑loop
+• Provides helpers to send Telegram messages safely from both sync & async code
 """
 
-import time
 import asyncio
-import threading
 import logging
+import threading
+import time
+from typing import List, Dict, Any
 
 from mempool_monitor import get_new_liquidity_pools
 from trade_execution import buy_token_multi_wallet, sell_token_auto_withdraw
 from whale_tracking import get_whale_transactions
 from telegram_notifications import safe_send_telegram_message
 from utils import get_token_price, should_buy_token, get_random_wallet
-from arbitrage import start_arbitrage_loop           # NEW ⭐
+from arbitrage import start_arbitrage_loop
 
 _LOG = logging.getLogger("monitor_and_trade")
 
-# ───────────────────────── shared Telegram helper ──────────────────────────
+# ─── telegram helpers ──────────────────────────────────────────────────────
 
+def _tell(message: str) -> None:
+    """Thread‑safe wrapper (fire‑and‑forget) for synchronous code."""
+    asyncio.create_task(safe_send_telegram_message(message))
 
-def send_telegram_message_sync(message: str) -> None:
-    """
-    Thread‑safe helper for synchronous contexts (sniper loop).
-
-    If we’re already inside an event‑loop, schedule a coroutine task;
-    otherwise spin up a one‑shot loop to send the message.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(safe_send_telegram_message(message))
-    except RuntimeError:  # no running loop in this thread
-        asyncio.run(safe_send_telegram_message(message))
-
-
-async def send_telegram_message_async(message: str) -> None:
-    """Awaitable helper for async contexts."""
+async def _tell_async(message: str) -> None:
+    """Awaitable helper for async code (rarely used here)."""
     await safe_send_telegram_message(message)
 
-# ───────────────────────── sniper (sync) loop ──────────────────────────────
+# ─── main sniper loop (runs in a thread) ───────────────────────────────────
 
-
-def sniper_loop() -> None:
-    """Main liquidity‑sniping loop with auto‑withdrawals (runs in thread)."""
+def _sniper_loop() -> None:
     _LOG.info("🚀 Sniper bot running with Automatic Withdrawals…")
-    send_telegram_message_sync("🚀 Snipe4SoleBot is LIVE and scanning for new liquidity pools!")
+    _tell("🚀 Snipe4SoleBot is LIVE and scanning for new liquidity pools!")
 
     while True:
-        new_pools = get_new_liquidity_pools()  # sync helper
+        try:
+            new_pools: List[Dict[str, Any]] = get_new_liquidity_pools() or []
+        except Exception as exc:
+            _LOG.warning("mempool fetch failed: %s", exc)
+            _tell(f"⚠️ mempool fetch failed: {exc}")
+            new_pools = []
 
         for pool in new_pools:
-            token_address = pool.get("baseMint") or pool.get("mint")
-            if not token_address:
+            token = pool.get("baseMint") or pool.get("mint")
+            if not token:
                 continue
 
-            _LOG.info("🔹 New liquidity detected: %s", token_address)
-            send_telegram_message_sync(f"🚀 New liquidity detected: {token_address}")
+            _LOG.info("🔹 New liquidity detected: %s", token)
+            _tell(f"🚀 New liquidity detected: {token}")
 
-            # Whale activity
-            whale_buys, whale_sells = get_whale_transactions(token_address)
-            if whale_buys > 100:
-                send_telegram_message_sync(f"🐋 WHALE ALERT! {whale_buys} SOL in buys")
-            if whale_sells > 50:
-                send_telegram_message_sync(f"⚠️ Warning! {whale_sells} SOL in sells")
+            # whale tracking (optional)
+            try:
+                buys, sells = asyncio.run(get_whale_transactions(token))
+                if buys > 100:
+                    _tell(f"🐋 WHALE ALERT! {buys} SOL in buys")
+                if sells > 50:
+                    _tell(f"⚠️ Whale sold {sells} SOL")
+            except Exception as _:
+                _LOG.debug("whale_tracking failed for %s", token)
 
-            # Buy decision
-            if should_buy_token(token_address):
-                selected_wallet = get_random_wallet()
-                send_telegram_message_sync(f"🛒 Buying {token_address} with wallet {selected_wallet.pubkey()}.")
+            # buy decision
+            if should_buy_token(token):
+                wallet = get_random_wallet()
+                _tell(f"🛒 Buying {token} with wallet {wallet.pubkey()}")
 
-                buy_token_multi_wallet(token_address, selected_wallet)
-                initial_price = get_token_price(token_address)
+                asyncio.run(buy_token_multi_wallet(token, wallet))
+                entry_price = get_token_price(token) or 0
 
-                # Price monitor – auto‑sell in‑place
+                # monitor price
                 while True:
-                    current_price = get_token_price(token_address)
-                    if not current_price:
+                    price = get_token_price(token)
+                    if not price:
                         time.sleep(2)
                         continue
 
-                    profit_pct = (current_price - initial_price) / initial_price * 100
-                    if profit_pct >= 10:
-                        sell_token_auto_withdraw(token_address, selected_wallet)
-                        send_telegram_message_sync(f"✅ Sold {token_address} for {profit_pct:.2f}% profit! Profits withdrawn.")
+                    pct = (price - entry_price) / entry_price * 100
+                    if pct >= 10 or pct <= -5:
+                        asyncio.run(sell_token_auto_withdraw(token, wallet))
+                        outcome = "profit" if pct >= 0 else "loss"
+                        _tell(f"💸 Sold {token} for {pct:.2f}% {outcome}.")
                         break
-                    elif profit_pct <= -5:
-                        sell_token_auto_withdraw(token_address, selected_wallet)
-                        send_telegram_message_sync(f"❌ Stop‑loss! Sold {token_address} at {profit_pct:.2f}% loss.")
-                        break
-
                     time.sleep(2)
             else:
-                send_telegram_message_sync(f"❌ Skipping {token_address}. Doesn’t meet buy criteria.")
-
+                _tell(f"❌ Skipping {token}. Doesn’t meet buy criteria.")
         time.sleep(1)
 
-# ───────────────────────── orchestrator ────────────────────────────────────
-
+# ─── thread launcher ──────────────────────────────────────────────────────
 
 def start_sniper_thread() -> threading.Thread:
-    """Launch the synchronous sniper loop in a daemon thread."""
-    thread = threading.Thread(target=sniper_loop, daemon=True, name="SniperLoop")
+    """Launch the sniper loop in a background daemon thread."""
+    thread = threading.Thread(target=_sniper_loop, name="SniperLoop", daemon=True)
     thread.start()
     return thread
 
+# ─── async arbitrage orchestrator ──────────────────────────────────────────
 
 async def _run_async_tasks() -> None:
-    """
-    Entrypoint for the main asyncio event‑loop.
-
-    • Starts arbitrage scanning (returns a background Task)
-    • Keeps the loop alive forever.
-    """
-    start_arbitrage_loop()  # from arbitrage.py – returns a Task, we don’t need the handle
+    start_arbitrage_loop()
     _LOG.info("⚖️  Arbitrage loop started.")
     while True:
-        await asyncio.sleep(3600)  # keep loop alive
+        await asyncio.sleep(3600)
 
 
 def start_all() -> None:
-    """
-    Call this from your main `bot.py` (or __main__) to launch everything:
-
-    >>> from monitor_and_trade import start_all
-    >>> start_all()
-    """
-    # 1. start sniper (sync) thread
+    """Launch both sniper thread and arbitrage loop."""
     start_sniper_thread()
-
-    # 2. run async arbitrage loop in the main thread
     try:
         asyncio.run(_run_async_tasks())
     except KeyboardInterrupt:
         _LOG.info("Shutting down…")
-
-
-# If you prefer this module to be executable directly, uncomment:
-# if __name__ == "__main__":
-#     start_all()

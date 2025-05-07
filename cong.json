@@ -38,6 +38,6 @@
     },
     "api_keys": {
         "live_mode": true,
-        "solana_rpc_url": "https://rpc.helius.xyz/?api-key=3b31521d-eeb6-4665-b500-08a071ba3263"
+        "solana_rpc_url": "export SOLANA_MEMPOOL_URL="https://mainnet.helius-rpc.com/?api-key=3b31521d-eeb6-4665-b500-08a071ba3263"
     }
 }

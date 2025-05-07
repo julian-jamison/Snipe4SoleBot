@@ -1,3 +1,4 @@
+```python
 """mempool_monitor.py
 
 High‑level responsibilities
@@ -5,10 +6,10 @@ High‑level responsibilities
 1. Poll the Solana mempool (via Helius `searchTransactions`) for programs that
    create liquidity pools on‑chain.
 2. Detect the *first* time we see a tx signature that looks like a new pool
-   initialisation (heuristic: instruction type contains the word "initialize").
+   initialization (heuristic: instruction type contains the word "initialize").
 3. Persist seen signatures so we never act twice on the same event.
-4. Notify the caller (and Telegram, via `send_telegram_message`) when we spot
-   something worth sniping.
+4. Notify the caller and Telegram when we spot something worth sniping, safely
+to avoid threading/asyncio conflicts.
 
 Environment variables
 ---------------------
@@ -19,91 +20,76 @@ Environment variables
                               we fall back to Raydium, Orca, Pump.fun.
 - MEMPOOL_POLL_LIMIT        – how many txs per request (default 5).
 - MEMPOOL_POLL_TIMEOUT      – HTTP timeout seconds (default 5).
-
-The module exposes **check_mempool()** and a thin alias
-**get_new_liquidity_pools()** for backward compatibility with existing import
-statements in `monitor_and_trade.py`.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-from telegram_notifications import send_telegram_message
+from telegram_notifications import safe_send_telegram_message
 
+# ─── logging setup ─────────────────────────────────────────────────────────
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
 
-###############################################################################
-# Configuration
-###############################################################################
-
-# --- Helius / RPC endpoint ---------------------------------------------------
-DEFAULT_HELIUS_URL = "https://mainnet.helius-rpc.com/?api-key={key}"
+# ─── Helius / RPC endpoint detection ─────────────────────────────────────────
 _HELIUS_KEY = os.getenv("HELIUS_API_KEY")
-SOLANA_MEMPOOL_URL = os.getenv(
-    "SOLANA_MEMPOOL_URL",
-    DEFAULT_HELIUS_URL.format(key=_HELIUS_KEY) if _HELIUS_KEY else None,
+_DEFAULT_URL = (
+    f"https://mainnet.helius-rpc.com/?api-key={_HELIUS_KEY}" if _HELIUS_KEY else None
 )
+SOLANA_MEMPOOL_URL = os.getenv("SOLANA_MEMPOOL_URL", _DEFAULT_URL)
 if not SOLANA_MEMPOOL_URL:
     raise RuntimeError(
-        "❌  Set either SOLANA_MEMPOOL_URL or HELIUS_API_KEY in the environment"
+        "❌  Set HELIUS_API_KEY or SOLANA_MEMPOOL_URL in the environment."
     )
 
-# --- Target AMM programs -----------------------------------------------------
-DEX_PROGRAM_IDS: list[str] = (
-    os.getenv(
-        "DEX_PROGRAM_IDS",
-        "rvHXrsyTrcRhTbkTJchfU3T9iU21WLCGMDu9zT4TuDw,"
-        "nExF8aV2KXMo8bJpu9A4gQ2T2xnKxB9EdKmXKj7iCsN,"
-        "8Y8n1xfkoEvXxBAaLw3mcQgw3m1ahdt9YrcmWZz5w5EZ",
-    )
-    .replace("\n", "")
-    .split(",")
+# ─── AMM program IDs (Raydium, Orca, Pump.fun default) ────────────────────
+DEFAULT_PROGRAMS = (
+    "rvHXrsyTrcRhTbkTJchfU3T9iU21WLCGMDu9zT4TuDw,"  # Raydium
+    "nExF8aV2KXMo8bJpu9A4gQ2T2xnKxB9EdKmXKj7iCsN,"  # Orca
+    "8Y8n1xfkoEvXxBAaLw3mcQgw3m1ahdt9YrcmWZz5w5EZ"   # Pump.fun
 )
-DEX_PROGRAM_IDS = [pid.strip() for pid in DEX_PROGRAM_IDS if pid.strip()]
+DEX_PROGRAM_IDS: List[str] = [
+    pid.strip()
+    for pid in os.getenv("DEX_PROGRAM_IDS", ",".join(DEFAULT_PROGRAMS)).split(",")
+    if pid.strip()
+]
 
-# --- Request tuning ----------------------------------------------------------
+# ─── request tuning ────────────────────────────────────────────────────────
 POLL_LIMIT: int = int(os.getenv("MEMPOOL_POLL_LIMIT", 5))
 HTTP_TIMEOUT: int = int(os.getenv("MEMPOOL_POLL_TIMEOUT", 5))
 
-# --- Persistence -------------------------------------------------------------
+# ─── persistence for seen signatures ───────────────────────────────────────
 SEEN_SIGNATURES_FILE = Path(os.getenv("SEEN_SIGNATURES_FILE", "seen_signatures.json"))
-_MAX_SIGNATURES = 10_000  # rotate file after this many sigs to avoid bloat
-
+_MAX_SIGS = 10_000
 if SEEN_SIGNATURES_FILE.exists():
-    with SEEN_SIGNATURES_FILE.open() as fp:
-        _SEEN_SIGNATURES: set[str] = set(json.load(fp))
+    _SEEN_SIGS = set(json.loads(SEEN_SIGNATURES_FILE.read_text()))
 else:
-    _SEEN_SIGNATURES = set()
+    _SEEN_SIGS = set()
 
 
-###############################################################################
-# Helper utilities
-###############################################################################
+def _persist_seen() -> None:
+    """Write signature cache to disk (rotate when too large)."""
+    if len(_SEEN_SIGS) > _MAX_SIGS:
+        trimmed = list(_SEEN_SIGS)[-(_MAX_SIGS // 2):]
+        _SEEN_SIGS.clear()
+        _SEEN_SIGS.update(trimmed)
+    SEEN_SIGNATURES_FILE.write_text(json.dumps(list(_SEEN_SIGS)))
 
-def _persist_seen_signatures() -> None:
-    """Write signature cache to disk (truncating to the most recent N)."""
-    if len(_SEEN_SIGNATURES) > _MAX_SIGNATURES:
-        # Keep only the newest N (simple strategy: slice after sort by insertion)
-        _trimmed = list(_SEEN_SIGNATURES)[-(_MAX_SIGNATURES // 2) :]
-        _SEEN_SIGNATURES.clear()
-        _SEEN_SIGNATURES.update(_trimmed)
-    SEEN_SIGNATURES_FILE.write_text(json.dumps(list(_SEEN_SIGNATURES)))
+# ─── resilient HTTP session ───────────────────────────────────────────────
 
-
-def _http_session() -> requests.Session:
-    """Return a requests session with sane retry/backoff."""
+def _session() -> requests.Session:
     retry = Retry(
         total=3,
         backoff_factor=0.5,
@@ -111,20 +97,36 @@ def _http_session() -> requests.Session:
         allowed_methods=["POST"],
     )
     adapter = HTTPAdapter(max_retries=retry)
-    session = requests.Session()
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
+    s = requests.Session()
+    s.mount("https://", adapter)
+    s.mount("http://", adapter)
+    return s
 
+SESSION = _session()
 
-SESSION = _http_session()
+# ─── Telegram notify helper (thread‑safe) ─────────────────────────────────
 
-###############################################################################
-# Core logic
-###############################################################################
+def _notify(message: str) -> None:
+    """
+    Thread-safe wrapper to schedule our async Telegram send.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = None
 
-def _fetch_recent_transactions(program_id: str) -> list[dict]:
-    """Query Helius `searchTransactions` for a single program."""
+    if loop and loop.is_running():
+        # schedule onto running loop
+        asyncio.run_coroutine_threadsafe(
+            safe_send_telegram_message(message), loop
+        )
+    else:
+        # no loop or not running: run standalone
+        asyncio.run(safe_send_telegram_message(message))
+
+# ─── Core mempool scan ────────────────────────────────────────────────────
+
+def _fetch_transactions(program_id: str) -> List[Dict[str, Any]]:
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -135,16 +137,17 @@ def _fetch_recent_transactions(program_id: str) -> list[dict]:
             "sort": "desc",
         },
     }
-
-    response = SESSION.post(
-        SOLANA_MEMPOOL_URL, json=payload, timeout=HTTP_TIMEOUT, headers={"Content-Type": "application/json"}
+    resp = SESSION.post(
+        SOLANA_MEMPOOL_URL,
+        json=payload,
+        timeout=HTTP_TIMEOUT,
+        headers={"Content-Type": "application/json"},
     )
-    response.raise_for_status()
-    return response.json().get("result", [])
+    resp.raise_for_status()
+    return resp.json().get("result", [])
 
 
-def _looks_like_pool_initialisation(tx: dict) -> bool:
-    """Heuristic: any instruction whose `parsedInstructionType` contains 'initialize'."""
+def _is_pool_init(tx: Dict[str, Any]) -> bool:
     for ix in tx.get("instructions", []):
         if "initialize" in ix.get("parsedInstructionType", "").lower():
             return True
@@ -152,68 +155,48 @@ def _looks_like_pool_initialisation(tx: dict) -> bool:
 
 
 def check_mempool() -> Optional[str]:
-    """Scan all configured AMM programs once.
-
-    Returns
-    -------
-    str | None
-        The **token mint address** of the first brand‑new liquidity pool we
-        detect, else `None`.
-    """
-    LOGGER.debug("Scanning mempool via Helius…")
-
-    for program_id in DEX_PROGRAM_IDS:
+    """Return the mint of a new pool, else None."""
+    for prog in DEX_PROGRAM_IDS:
         try:
-            transactions = _fetch_recent_transactions(program_id)
+            txs = _fetch_transactions(prog)
         except requests.RequestException as exc:
-            LOGGER.warning("Helius request failed for %s: %s", program_id, exc)
-            send_telegram_message(f"⚠️ Helius request failed for {program_id}: {exc}")
+            LOGGER.warning("Helius request failed for %s: %s", prog, exc)
+            _notify(f"⚠️ Helius request failed for {prog}: {exc}")
             continue
 
-        for tx in transactions:
+        for tx in txs:
             sig = tx.get("signature")
-            if not sig or sig in _SEEN_SIGNATURES:
+            if not sig or sig in _SEEN_SIGS:
+                continue
+            _SEEN_SIGS.add(sig)
+
+            if not _is_pool_init(tx):
                 continue
 
-            if _looks_like_pool_initialisation(tx):
-                _SEEN_SIGNATURES.add(sig)
-                _persist_seen_signatures()
+            _persist_seen()
+            token_mint = (
+                tx.get("description", {})
+                .get("tokenTransfers", [{}])[0]
+                .get("mint", "Unknown")
+            )
+            LOGGER.info("🚀 Pool init detected: %s via %s", token_mint, prog)
+            _notify(
+                f"🚀 Mempool: New liquidity pool detected for token {token_mint}"
+            )
+            return token_mint
 
-                token_mint = (
-                    tx.get("description", {})
-                    .get("tokenTransfers", [{}])[0]
-                    .get("mint", "Unknown")
-                )
-                LOGGER.info("🚀 Potential new pool: %s via %s", token_mint, program_id)
-                send_telegram_message(
-                    f"🚀 Mempool: New liquidity pool detected for token {token_mint}"
-                )
-                return token_mint
-
-            # Mark signature as seen even if it wasn't an init to avoid re‑processing
-            _SEEN_SIGNATURES.add(sig)
-
-    _persist_seen_signatures()
+    _persist_seen()
     return None
 
 
-# ---------------------------------------------------------------------------
-# Backward‑compatibility alias
-# ---------------------------------------------------------------------------
-
 def get_new_liquidity_pools() -> Optional[str]:
-    """Alias kept for legacy import paths (monitor_and_trade.py)."""
     return check_mempool()
 
-
-###############################################################################
-# Optional manual testing loop
-###############################################################################
-
 if __name__ == "__main__":
-    LOGGER.info("Starting mempool monitor in standalone mode…")
+    LOGGER.info("Standalone mempool monitor – press Ctrl‑C to stop.")
     while True:
-        pool = check_mempool()
-        if pool:
-            LOGGER.info("🔥 Found new liquidity pool: %s", pool)
+        mint = check_mempool()
+        if mint:
+            LOGGER.info("🔥 Found pool init for %s", mint)
         time.sleep(10)
+```

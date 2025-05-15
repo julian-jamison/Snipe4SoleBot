@@ -1,33 +1,32 @@
+from __future__ import annotations
+
 import enum
+import logging
+import ssl
 import time
-from types import TracebackType
-from typing import (
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+import types
+import typing
 
 import h11
 
+from .._backends.base import NetworkStream
 from .._exceptions import (
     ConnectionNotAvailable,
     LocalProtocolError,
     RemoteProtocolError,
+    WriteError,
     map_exceptions,
 )
 from .._models import Origin, Request, Response
-from .._synchronization import Lock
+from .._synchronization import Lock, ShieldCancellation
 from .._trace import Trace
-from ..backends.base import NetworkStream
 from .interfaces import ConnectionInterface
 
+logger = logging.getLogger("httpcore.http11")
+
+
 # A subset of `h11.Event` types supported by `_send_event`
-H11SendEvent = Union[
+H11SendEvent = typing.Union[
     h11.Request,
     h11.Data,
     h11.EndOfMessage,
@@ -43,21 +42,25 @@ class HTTPConnectionState(enum.IntEnum):
 
 class HTTP11Connection(ConnectionInterface):
     READ_NUM_BYTES = 64 * 1024
+    MAX_INCOMPLETE_EVENT_SIZE = 100 * 1024
 
     def __init__(
         self,
         origin: Origin,
         stream: NetworkStream,
-        keepalive_expiry: Optional[float] = None,
+        keepalive_expiry: float | None = None,
     ) -> None:
         self._origin = origin
         self._network_stream = stream
-        self._keepalive_expiry: Optional[float] = keepalive_expiry
-        self._expire_at: Optional[float] = None
+        self._keepalive_expiry: float | None = keepalive_expiry
+        self._expire_at: float | None = None
         self._state = HTTPConnectionState.NEW
         self._state_lock = Lock()
         self._request_count = 0
-        self._h11_state = h11.Connection(our_role=h11.CLIENT)
+        self._h11_state = h11.Connection(
+            our_role=h11.CLIENT,
+            max_incomplete_event_size=self.MAX_INCOMPLETE_EVENT_SIZE,
+        )
 
     def handle_request(self, request: Request) -> Response:
         if not self.can_handle_request(request.url.origin):
@@ -76,18 +79,30 @@ class HTTP11Connection(ConnectionInterface):
 
         try:
             kwargs = {"request": request}
-            with Trace("http11.send_request_headers", request, kwargs) as trace:
-                self._send_request_headers(**kwargs)
-            with Trace("http11.send_request_body", request, kwargs) as trace:
-                self._send_request_body(**kwargs)
+            try:
+                with Trace(
+                    "send_request_headers", logger, request, kwargs
+                ) as trace:
+                    self._send_request_headers(**kwargs)
+                with Trace("send_request_body", logger, request, kwargs) as trace:
+                    self._send_request_body(**kwargs)
+            except WriteError:
+                # If we get a write error while we're writing the request,
+                # then we supress this error and move on to attempting to
+                # read the response. Servers can sometimes close the request
+                # pre-emptively and then respond with a well formed HTTP
+                # error response.
+                pass
+
             with Trace(
-                "http11.receive_response_headers", request, kwargs
+                "receive_response_headers", logger, request, kwargs
             ) as trace:
                 (
                     http_version,
                     status,
                     reason_phrase,
                     headers,
+                    trailing_data,
                 ) = self._receive_response_headers(**kwargs)
                 trace.return_value = (
                     http_version,
@@ -96,6 +111,14 @@ class HTTP11Connection(ConnectionInterface):
                     headers,
                 )
 
+            network_stream = self._network_stream
+
+            # CONNECT or Upgrade request
+            if (status == 101) or (
+                (request.method == b"CONNECT") and (200 <= status < 300)
+            ):
+                network_stream = HTTP11UpgradeStream(network_stream, trailing_data)
+
             return Response(
                 status=status,
                 headers=headers,
@@ -103,12 +126,13 @@ class HTTP11Connection(ConnectionInterface):
                 extensions={
                     "http_version": http_version,
                     "reason_phrase": reason_phrase,
-                    "network_stream": self._network_stream,
+                    "network_stream": network_stream,
                 },
             )
         except BaseException as exc:
-            with Trace("http11.response_closed", request) as trace:
-                self._response_closed()
+            with ShieldCancellation():
+                with Trace("response_closed", logger, request) as trace:
+                    self._response_closed()
             raise exc
 
     # Sending the request...
@@ -129,16 +153,14 @@ class HTTP11Connection(ConnectionInterface):
         timeouts = request.extensions.get("timeout", {})
         timeout = timeouts.get("write", None)
 
-        assert isinstance(request.stream, Iterable)
+        assert isinstance(request.stream, typing.Iterable)
         for chunk in request.stream:
             event = h11.Data(data=chunk)
             self._send_event(event, timeout=timeout)
 
         self._send_event(h11.EndOfMessage(), timeout=timeout)
 
-    def _send_event(
-        self, event: h11.Event, timeout: Optional[float] = None
-    ) -> None:
+    def _send_event(self, event: h11.Event, timeout: float | None = None) -> None:
         bytes_to_send = self._h11_state.send(event)
         if bytes_to_send is not None:
             self._network_stream.write(bytes_to_send, timeout=timeout)
@@ -147,7 +169,7 @@ class HTTP11Connection(ConnectionInterface):
 
     def _receive_response_headers(
         self, request: Request
-    ) -> Tuple[bytes, int, bytes, List[Tuple[bytes, bytes]]]:
+    ) -> tuple[bytes, int, bytes, list[tuple[bytes, bytes]], bytes]:
         timeouts = request.extensions.get("timeout", {})
         timeout = timeouts.get("read", None)
 
@@ -167,9 +189,13 @@ class HTTP11Connection(ConnectionInterface):
         # raw header casing, rather than the enforced lowercase headers.
         headers = event.headers.raw_items()
 
-        return http_version, event.status_code, event.reason, headers
+        trailing_data, _ = self._h11_state.trailing_data
 
-    def _receive_response_body(self, request: Request) -> Iterator[bytes]:
+        return http_version, event.status_code, event.reason, headers, trailing_data
+
+    def _receive_response_body(
+        self, request: Request
+    ) -> typing.Iterator[bytes]:
         timeouts = request.extensions.get("timeout", {})
         timeout = timeouts.get("read", None)
 
@@ -181,8 +207,8 @@ class HTTP11Connection(ConnectionInterface):
                 break
 
     def _receive_event(
-        self, timeout: Optional[float] = None
-    ) -> Union[h11.Event, Type[h11.PAUSED]]:
+        self, timeout: float | None = None
+    ) -> h11.Event | type[h11.PAUSED]:
         while True:
             with map_exceptions({h11.RemoteProtocolError: RemoteProtocolError}):
                 event = self._h11_state.next_event()
@@ -207,7 +233,7 @@ class HTTP11Connection(ConnectionInterface):
                 self._h11_state.receive_data(data)
             else:
                 # mypy fails to narrow the type in the above if statement above
-                return cast(Union[h11.Event, Type[h11.PAUSED]], event)
+                return event  # type: ignore[return-value]
 
     def _response_closed(self) -> None:
         with self._state_lock:
@@ -283,14 +309,14 @@ class HTTP11Connection(ConnectionInterface):
     # These context managers are not used in the standard flow, but are
     # useful for testing or working with connection instances directly.
 
-    def __enter__(self) -> "HTTP11Connection":
+    def __enter__(self) -> HTTP11Connection:
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]] = None,
-        exc_value: Optional[BaseException] = None,
-        traceback: Optional[TracebackType] = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: types.TracebackType | None = None,
     ) -> None:
         self.close()
 
@@ -301,21 +327,53 @@ class HTTP11ConnectionByteStream:
         self._request = request
         self._closed = False
 
-    def __iter__(self) -> Iterator[bytes]:
+    def __iter__(self) -> typing.Iterator[bytes]:
         kwargs = {"request": self._request}
         try:
-            with Trace("http11.receive_response_body", self._request, kwargs):
+            with Trace("receive_response_body", logger, self._request, kwargs):
                 for chunk in self._connection._receive_response_body(**kwargs):
                     yield chunk
         except BaseException as exc:
             # If we get an exception while streaming the response,
             # we want to close the response (and possibly the connection)
             # before raising that exception.
-            self.close()
+            with ShieldCancellation():
+                self.close()
             raise exc
 
     def close(self) -> None:
         if not self._closed:
             self._closed = True
-            with Trace("http11.response_closed", self._request):
+            with Trace("response_closed", logger, self._request):
                 self._connection._response_closed()
+
+
+class HTTP11UpgradeStream(NetworkStream):
+    def __init__(self, stream: NetworkStream, leading_data: bytes) -> None:
+        self._stream = stream
+        self._leading_data = leading_data
+
+    def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        if self._leading_data:
+            buffer = self._leading_data[:max_bytes]
+            self._leading_data = self._leading_data[max_bytes:]
+            return buffer
+        else:
+            return self._stream.read(max_bytes, timeout)
+
+    def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        self._stream.write(buffer, timeout)
+
+    def close(self) -> None:
+        self._stream.close()
+
+    def start_tls(
+        self,
+        ssl_context: ssl.SSLContext,
+        server_hostname: str | None = None,
+        timeout: float | None = None,
+    ) -> NetworkStream:
+        return self._stream.start_tls(ssl_context, server_hostname, timeout)
+
+    def get_extra_info(self, info: str) -> typing.Any:
+        return self._stream.get_extra_info(info)

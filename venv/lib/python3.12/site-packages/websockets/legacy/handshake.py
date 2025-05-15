@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-from typing import List
 
 from ..datastructures import Headers, MultipleValuesError
 from ..exceptions import InvalidHeader, InvalidHeaderValue, InvalidUpgrade
@@ -21,10 +20,10 @@ def build_request(headers: Headers) -> str:
     Update request headers passed in argument.
 
     Args:
-        headers: handshake request headers.
+        headers: Handshake request headers.
 
     Returns:
-        str: ``key`` that must be passed to :func:`check_response`.
+        ``key`` that must be passed to :func:`check_response`.
 
     """
     key = generate_key()
@@ -45,24 +44,24 @@ def check_request(headers: Headers) -> str:
     the responsibility of the caller.
 
     Args:
-        headers: handshake request headers.
+        headers: Handshake request headers.
 
     Returns:
-        str: ``key`` that must be passed to :func:`build_response`.
+        ``key`` that must be passed to :func:`build_response`.
 
     Raises:
-        InvalidHandshake: if the handshake request is invalid;
-            then the server must return 400 Bad Request error.
+        InvalidHandshake: If the handshake request is invalid.
+            Then, the server must return a 400 Bad Request error.
 
     """
-    connection: List[ConnectionOption] = sum(
+    connection: list[ConnectionOption] = sum(
         [parse_connection(value) for value in headers.get_all("Connection")], []
     )
 
     if not any(value.lower() == "upgrade" for value in connection):
         raise InvalidUpgrade("Connection", ", ".join(connection))
 
-    upgrade: List[UpgradeProtocol] = sum(
+    upgrade: list[UpgradeProtocol] = sum(
         [parse_upgrade(value) for value in headers.get_all("Upgrade")], []
     )
 
@@ -77,9 +76,7 @@ def check_request(headers: Headers) -> str:
     except KeyError as exc:
         raise InvalidHeader("Sec-WebSocket-Key") from exc
     except MultipleValuesError as exc:
-        raise InvalidHeader(
-            "Sec-WebSocket-Key", "more than one Sec-WebSocket-Key header found"
-        ) from exc
+        raise InvalidHeader("Sec-WebSocket-Key", "multiple values") from exc
 
     try:
         raw_key = base64.b64decode(s_w_key.encode(), validate=True)
@@ -93,9 +90,7 @@ def check_request(headers: Headers) -> str:
     except KeyError as exc:
         raise InvalidHeader("Sec-WebSocket-Version") from exc
     except MultipleValuesError as exc:
-        raise InvalidHeader(
-            "Sec-WebSocket-Version", "more than one Sec-WebSocket-Version header found"
-        ) from exc
+        raise InvalidHeader("Sec-WebSocket-Version", "multiple values") from exc
 
     if s_w_version != "13":
         raise InvalidHeaderValue("Sec-WebSocket-Version", s_w_version)
@@ -110,8 +105,8 @@ def build_response(headers: Headers, key: str) -> None:
     Update response headers passed in argument.
 
     Args:
-        headers: handshake response headers.
-        key: returned by :func:`check_request`.
+        headers: Handshake response headers.
+        key: Returned by :func:`check_request`.
 
     """
     headers["Upgrade"] = "websocket"
@@ -128,21 +123,21 @@ def check_response(headers: Headers, key: str) -> None:
     the caller.
 
     Args:
-        headers: handshake response headers.
-        key: returned by :func:`build_request`.
+        headers: Handshake response headers.
+        key: Returned by :func:`build_request`.
 
     Raises:
-        InvalidHandshake: if the handshake response is invalid.
+        InvalidHandshake: If the handshake response is invalid.
 
     """
-    connection: List[ConnectionOption] = sum(
+    connection: list[ConnectionOption] = sum(
         [parse_connection(value) for value in headers.get_all("Connection")], []
     )
 
     if not any(value.lower() == "upgrade" for value in connection):
         raise InvalidUpgrade("Connection", " ".join(connection))
 
-    upgrade: List[UpgradeProtocol] = sum(
+    upgrade: list[UpgradeProtocol] = sum(
         [parse_upgrade(value) for value in headers.get_all("Upgrade")], []
     )
 
@@ -157,9 +152,7 @@ def check_response(headers: Headers, key: str) -> None:
     except KeyError as exc:
         raise InvalidHeader("Sec-WebSocket-Accept") from exc
     except MultipleValuesError as exc:
-        raise InvalidHeader(
-            "Sec-WebSocket-Accept", "more than one Sec-WebSocket-Accept header found"
-        ) from exc
+        raise InvalidHeader("Sec-WebSocket-Accept", "multiple values") from exc
 
     if s_w_accept != accept(key):
         raise InvalidHeaderValue("Sec-WebSocket-Accept", s_w_accept)

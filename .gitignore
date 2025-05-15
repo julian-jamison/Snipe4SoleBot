@@ -1,7 +1,33 @@
+# Sensitive files
+config.json
+config.enc
+config_encrypted.json
+.env
+*.key
+*.pem
+bot_debug.log
+telegram_notifications.log
+bot.error.log
+bot.log
+
+# API keys and secrets
+*_key.txt
+*_secret.txt
+
+# Runtime files
+*.pid
+*.lock
+bot_status.json
+portfolio.json
+bot_heartbeat.json
+bot_health.log
+bot_restart_state.json
+
+# Python related
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 venv/
-__pycache__/
-*.pyc
-__pycache__/
-*.pyc
-**/__pycache__/
-**/*.pyc
+ENV/

@@ -1,67 +1,72 @@
 """
-:mod:`websockets.exceptions` defines the following exception hierarchy:
+:mod:`websockets.exceptions` defines the following hierarchy of exceptions.
 
 * :exc:`WebSocketException`
     * :exc:`ConnectionClosed`
-        * :exc:`ConnectionClosedError`
         * :exc:`ConnectionClosedOK`
+        * :exc:`ConnectionClosedError`
+    * :exc:`InvalidURI`
+    * :exc:`InvalidProxy`
     * :exc:`InvalidHandshake`
         * :exc:`SecurityError`
+        * :exc:`ProxyError`
+            * :exc:`InvalidProxyMessage`
+            * :exc:`InvalidProxyStatus`
         * :exc:`InvalidMessage`
+        * :exc:`InvalidStatus`
+        * :exc:`InvalidStatusCode` (legacy)
         * :exc:`InvalidHeader`
             * :exc:`InvalidHeaderFormat`
             * :exc:`InvalidHeaderValue`
             * :exc:`InvalidOrigin`
             * :exc:`InvalidUpgrade`
-        * :exc:`InvalidStatus`
-        * :exc:`InvalidStatusCode` (legacy)
         * :exc:`NegotiationError`
             * :exc:`DuplicateParameter`
             * :exc:`InvalidParameterName`
             * :exc:`InvalidParameterValue`
-        * :exc:`AbortHandshake`
-        * :exc:`RedirectHandshake`
-    * :exc:`InvalidState`
-    * :exc:`InvalidURI`
-    * :exc:`PayloadTooBig`
-    * :exc:`ProtocolError`
+        * :exc:`AbortHandshake` (legacy)
+        * :exc:`RedirectHandshake` (legacy)
+    * :exc:`ProtocolError` (Sans-I/O)
+    * :exc:`PayloadTooBig` (Sans-I/O)
+    * :exc:`InvalidState` (Sans-I/O)
+    * :exc:`ConcurrencyError`
 
 """
 
 from __future__ import annotations
 
-import http
-from typing import Optional
+import warnings
 
-from . import datastructures, frames, http11
+from .imports import lazy_import
 
 
 __all__ = [
     "WebSocketException",
     "ConnectionClosed",
-    "ConnectionClosedError",
     "ConnectionClosedOK",
+    "ConnectionClosedError",
+    "InvalidURI",
+    "InvalidProxy",
     "InvalidHandshake",
     "SecurityError",
+    "ProxyError",
+    "InvalidProxyMessage",
+    "InvalidProxyStatus",
     "InvalidMessage",
+    "InvalidStatus",
     "InvalidHeader",
     "InvalidHeaderFormat",
     "InvalidHeaderValue",
     "InvalidOrigin",
     "InvalidUpgrade",
-    "InvalidStatus",
-    "InvalidStatusCode",
     "NegotiationError",
     "DuplicateParameter",
     "InvalidParameterName",
     "InvalidParameterValue",
-    "AbortHandshake",
-    "RedirectHandshake",
-    "InvalidState",
-    "InvalidURI",
-    "PayloadTooBig",
     "ProtocolError",
-    "WebSocketProtocolError",
+    "PayloadTooBig",
+    "InvalidState",
+    "ConcurrencyError",
 ]
 
 
@@ -77,40 +82,37 @@ class ConnectionClosed(WebSocketException):
     Raised when trying to interact with a closed connection.
 
     Attributes:
-        rcvd (Optional[Close]): if a close frame was received, its code and
-            reason are available in ``rcvd.code`` and ``rcvd.reason``.
-        sent (Optional[Close]): if a close frame was sent, its code and reason
-            are available in ``sent.code`` and ``sent.reason``.
-        rcvd_then_sent (Optional[bool]): if close frames were received and
-            sent, this attribute tells in which order this happened, from the
-            perspective of this side of the connection.
+        rcvd: If a close frame was received, its code and reason are available
+            in ``rcvd.code`` and ``rcvd.reason``.
+        sent: If a close frame was sent, its code and reason are available
+            in ``sent.code`` and ``sent.reason``.
+        rcvd_then_sent: If close frames were received and sent, this attribute
+            tells in which order this happened, from the perspective of this
+            side of the connection.
 
     """
 
     def __init__(
         self,
-        rcvd: Optional[frames.Close],
-        sent: Optional[frames.Close],
-        rcvd_then_sent: Optional[bool] = None,
+        rcvd: frames.Close | None,
+        sent: frames.Close | None,
+        rcvd_then_sent: bool | None = None,
     ) -> None:
         self.rcvd = rcvd
         self.sent = sent
         self.rcvd_then_sent = rcvd_then_sent
+        assert (self.rcvd_then_sent is None) == (self.rcvd is None or self.sent is None)
 
     def __str__(self) -> str:
         if self.rcvd is None:
             if self.sent is None:
-                assert self.rcvd_then_sent is None
                 return "no close frame received or sent"
             else:
-                assert self.rcvd_then_sent is None
                 return f"sent {self.sent}; no close frame received"
         else:
             if self.sent is None:
-                assert self.rcvd_then_sent is None
                 return f"received {self.rcvd}; no close frame sent"
             else:
-                assert self.rcvd_then_sent is not None
                 if self.rcvd_then_sent:
                     return f"received {self.rcvd}; then sent {self.sent}"
                 else:
@@ -120,35 +122,78 @@ class ConnectionClosed(WebSocketException):
 
     @property
     def code(self) -> int:
-        return 1006 if self.rcvd is None else self.rcvd.code
+        warnings.warn(  # deprecated in 13.1 - 2024-09-21
+            "ConnectionClosed.code is deprecated; "
+            "use Protocol.close_code or ConnectionClosed.rcvd.code",
+            DeprecationWarning,
+        )
+        if self.rcvd is None:
+            return frames.CloseCode.ABNORMAL_CLOSURE
+        return self.rcvd.code
 
     @property
     def reason(self) -> str:
-        return "" if self.rcvd is None else self.rcvd.reason
-
-
-class ConnectionClosedError(ConnectionClosed):
-    """
-    Like :exc:`ConnectionClosed`, when the connection terminated with an error.
-
-    A close code other than 1000 (OK) or 1001 (going away) was received or
-    sent, or the closing handshake didn't complete properly.
-
-    """
+        warnings.warn(  # deprecated in 13.1 - 2024-09-21
+            "ConnectionClosed.reason is deprecated; "
+            "use Protocol.close_reason or ConnectionClosed.rcvd.reason",
+            DeprecationWarning,
+        )
+        if self.rcvd is None:
+            return ""
+        return self.rcvd.reason
 
 
 class ConnectionClosedOK(ConnectionClosed):
     """
     Like :exc:`ConnectionClosed`, when the connection terminated properly.
 
-    A close code 1000 (OK) or 1001 (going away) was received and sent.
+    A close code with code 1000 (OK) or 1001 (going away) or without a code was
+    received and sent.
 
     """
+
+
+class ConnectionClosedError(ConnectionClosed):
+    """
+    Like :exc:`ConnectionClosed`, when the connection terminated with an error.
+
+    A close frame with a code other than 1000 (OK) or 1001 (going away) was
+    received or sent, or the closing handshake didn't complete properly.
+
+    """
+
+
+class InvalidURI(WebSocketException):
+    """
+    Raised when connecting to a URI that isn't a valid WebSocket URI.
+
+    """
+
+    def __init__(self, uri: str, msg: str) -> None:
+        self.uri = uri
+        self.msg = msg
+
+    def __str__(self) -> str:
+        return f"{self.uri} isn't a valid URI: {self.msg}"
+
+
+class InvalidProxy(WebSocketException):
+    """
+    Raised when connecting via a proxy that isn't valid.
+
+    """
+
+    def __init__(self, proxy: str, msg: str) -> None:
+        self.proxy = proxy
+        self.msg = msg
+
+    def __str__(self) -> str:
+        return f"{self.proxy} isn't a valid proxy: {self.msg}"
 
 
 class InvalidHandshake(WebSocketException):
     """
-    Raised during the handshake when the WebSocket connection fails.
+    Base class for exceptions raised when the opening handshake fails.
 
     """
 
@@ -157,71 +202,42 @@ class SecurityError(InvalidHandshake):
     """
     Raised when a handshake request or response breaks a security rule.
 
-    Security limits are hard coded.
+    Security limits can be configured with :doc:`environment variables
+    <../reference/variables>`.
 
     """
+
+
+class ProxyError(InvalidHandshake):
+    """
+    Raised when failing to connect to a proxy.
+
+    """
+
+
+class InvalidProxyMessage(ProxyError):
+    """
+    Raised when an HTTP proxy response is malformed.
+
+    """
+
+
+class InvalidProxyStatus(ProxyError):
+    """
+    Raised when an HTTP proxy rejects the connection.
+
+    """
+
+    def __init__(self, response: http11.Response) -> None:
+        self.response = response
+
+    def __str__(self) -> str:
+        return f"proxy rejected connection: HTTP {self.response.status_code:d}"
 
 
 class InvalidMessage(InvalidHandshake):
     """
     Raised when a handshake request or response is malformed.
-
-    """
-
-
-class InvalidHeader(InvalidHandshake):
-    """
-    Raised when a HTTP header doesn't have a valid format or value.
-
-    """
-
-    def __init__(self, name: str, value: Optional[str] = None) -> None:
-        self.name = name
-        self.value = value
-
-    def __str__(self) -> str:
-        if self.value is None:
-            return f"missing {self.name} header"
-        elif self.value == "":
-            return f"empty {self.name} header"
-        else:
-            return f"invalid {self.name} header: {self.value}"
-
-
-class InvalidHeaderFormat(InvalidHeader):
-    """
-    Raised when a HTTP header cannot be parsed.
-
-    The format of the header doesn't match the grammar for that header.
-
-    """
-
-    def __init__(self, name: str, error: str, header: str, pos: int) -> None:
-        super().__init__(name, f"{error} at {pos} in {header}")
-
-
-class InvalidHeaderValue(InvalidHeader):
-    """
-    Raised when a HTTP header has a wrong value.
-
-    The format of the header is correct but a value isn't acceptable.
-
-    """
-
-
-class InvalidOrigin(InvalidHeader):
-    """
-    Raised when the Origin header in a request isn't allowed.
-
-    """
-
-    def __init__(self, origin: Optional[str]) -> None:
-        super().__init__("Origin", origin)
-
-
-class InvalidUpgrade(InvalidHeader):
-    """
-    Raised when the Upgrade or Connection header isn't correct.
 
     """
 
@@ -237,28 +253,70 @@ class InvalidStatus(InvalidHandshake):
 
     def __str__(self) -> str:
         return (
-            "server rejected WebSocket connection: "
-            f"HTTP {self.response.status_code:d}"
+            f"server rejected WebSocket connection: HTTP {self.response.status_code:d}"
         )
 
 
-class InvalidStatusCode(InvalidHandshake):
+class InvalidHeader(InvalidHandshake):
     """
-    Raised when a handshake response status code is invalid.
+    Raised when an HTTP header doesn't have a valid format or value.
 
     """
 
-    def __init__(self, status_code: int, headers: datastructures.Headers) -> None:
-        self.status_code = status_code
-        self.headers = headers
+    def __init__(self, name: str, value: str | None = None) -> None:
+        self.name = name
+        self.value = value
 
     def __str__(self) -> str:
-        return f"server rejected WebSocket connection: HTTP {self.status_code}"
+        if self.value is None:
+            return f"missing {self.name} header"
+        elif self.value == "":
+            return f"empty {self.name} header"
+        else:
+            return f"invalid {self.name} header: {self.value}"
+
+
+class InvalidHeaderFormat(InvalidHeader):
+    """
+    Raised when an HTTP header cannot be parsed.
+
+    The format of the header doesn't match the grammar for that header.
+
+    """
+
+    def __init__(self, name: str, error: str, header: str, pos: int) -> None:
+        super().__init__(name, f"{error} at {pos} in {header}")
+
+
+class InvalidHeaderValue(InvalidHeader):
+    """
+    Raised when an HTTP header has a wrong value.
+
+    The format of the header is correct but the value isn't acceptable.
+
+    """
+
+
+class InvalidOrigin(InvalidHeader):
+    """
+    Raised when the Origin header in a request isn't allowed.
+
+    """
+
+    def __init__(self, origin: str | None) -> None:
+        super().__init__("Origin", origin)
+
+
+class InvalidUpgrade(InvalidHeader):
+    """
+    Raised when the Upgrade or Connection header isn't correct.
+
+    """
 
 
 class NegotiationError(InvalidHandshake):
     """
-    Raised when negotiating an extension fails.
+    Raised when negotiating an extension or a subprotocol fails.
 
     """
 
@@ -295,7 +353,7 @@ class InvalidParameterValue(NegotiationError):
 
     """
 
-    def __init__(self, name: str, value: Optional[str]) -> None:
+    def __init__(self, name: str, value: str | None) -> None:
         self.name = name
         self.value = value
 
@@ -308,91 +366,108 @@ class InvalidParameterValue(NegotiationError):
             return f"invalid value for parameter {self.name}: {self.value}"
 
 
-class AbortHandshake(InvalidHandshake):
+class ProtocolError(WebSocketException):
     """
-    Raised to abort the handshake on purpose and return a HTTP response.
+    Raised when receiving or sending a frame that breaks the protocol.
 
-    This exception is an implementation detail.
+    The Sans-I/O implementation raises this exception when:
 
-    The public API
-    is :meth:`~websockets.server.WebSocketServerProtocol.process_request`.
-
-    Attributes:
-        status (~http.HTTPStatus): HTTP status code.
-        headers (Headers): HTTP response headers.
-        body (bytes): HTTP response body.
-    """
-
-    def __init__(
-        self,
-        status: http.HTTPStatus,
-        headers: datastructures.HeadersLike,
-        body: bytes = b"",
-    ) -> None:
-        self.status = status
-        self.headers = datastructures.Headers(headers)
-        self.body = body
-
-    def __str__(self) -> str:
-        return (
-            f"HTTP {self.status:d}, "
-            f"{len(self.headers)} headers, "
-            f"{len(self.body)} bytes"
-        )
-
-
-class RedirectHandshake(InvalidHandshake):
-    """
-    Raised when a handshake gets redirected.
-
-    This exception is an implementation detail.
+    * receiving or sending a frame that contains invalid data;
+    * receiving or sending an invalid sequence of frames.
 
     """
-
-    def __init__(self, uri: str) -> None:
-        self.uri = uri
-
-    def __str__(self) -> str:
-        return f"redirect to {self.uri}"
-
-
-class InvalidState(WebSocketException, AssertionError):
-    """
-    Raised when an operation is forbidden in the current state.
-
-    This exception is an implementation detail.
-
-    It should never be raised in normal circumstances.
-
-    """
-
-
-class InvalidURI(WebSocketException):
-    """
-    Raised when connecting to an URI that isn't a valid WebSocket URI.
-
-    """
-
-    def __init__(self, uri: str, msg: str) -> None:
-        self.uri = uri
-        self.msg = msg
-
-    def __str__(self) -> str:
-        return f"{self.uri} isn't a valid URI: {self.msg}"
 
 
 class PayloadTooBig(WebSocketException):
     """
-    Raised when receiving a frame with a payload exceeding the maximum size.
+    Raised when parsing a frame with a payload that exceeds the maximum size.
+
+    The Sans-I/O layer uses this exception internally. It doesn't bubble up to
+    the I/O layer.
+
+    The :meth:`~websockets.extensions.Extension.decode` method of extensions
+    must raise :exc:`PayloadTooBig` if decoding a frame would exceed the limit.
+
+    """
+
+    def __init__(
+        self,
+        size_or_message: int | None | str,
+        max_size: int | None = None,
+        cur_size: int | None = None,
+    ) -> None:
+        if isinstance(size_or_message, str):
+            assert max_size is None
+            assert cur_size is None
+            warnings.warn(  # deprecated in 14.0 - 2024-11-09
+                "PayloadTooBig(message) is deprecated; "
+                "change to PayloadTooBig(size, max_size)",
+                DeprecationWarning,
+            )
+            self.message: str | None = size_or_message
+        else:
+            self.message = None
+            self.size: int | None = size_or_message
+            assert max_size is not None
+            self.max_size: int = max_size
+            self.cur_size: int | None = None
+            self.set_current_size(cur_size)
+
+    def __str__(self) -> str:
+        if self.message is not None:
+            return self.message
+        else:
+            message = "frame "
+            if self.size is not None:
+                message += f"with {self.size} bytes "
+            if self.cur_size is not None:
+                message += f"after reading {self.cur_size} bytes "
+            message += f"exceeds limit of {self.max_size} bytes"
+            return message
+
+    def set_current_size(self, cur_size: int | None) -> None:
+        assert self.cur_size is None
+        if cur_size is not None:
+            self.max_size += cur_size
+            self.cur_size = cur_size
+
+
+class InvalidState(WebSocketException, AssertionError):
+    """
+    Raised when sending a frame is forbidden in the current state.
+
+    Specifically, the Sans-I/O layer raises this exception when:
+
+    * sending a data frame to a connection in a state other
+      :attr:`~websockets.protocol.State.OPEN`;
+    * sending a control frame to a connection in a state other than
+      :attr:`~websockets.protocol.State.OPEN` or
+      :attr:`~websockets.protocol.State.CLOSING`.
 
     """
 
 
-class ProtocolError(WebSocketException):
+class ConcurrencyError(WebSocketException, RuntimeError):
     """
-    Raised when a frame breaks the protocol.
+    Raised when receiving or sending messages concurrently.
+
+    WebSocket is a connection-oriented protocol. Reads must be serialized; so
+    must be writes. However, reading and writing concurrently is possible.
 
     """
 
 
-WebSocketProtocolError = ProtocolError  # for backwards compatibility
+# At the bottom to break import cycles created by type annotations.
+from . import frames, http11  # noqa: E402
+
+
+lazy_import(
+    globals(),
+    deprecated_aliases={
+        # deprecated in 14.0 - 2024-11-09
+        "AbortHandshake": ".legacy.exceptions",
+        "InvalidStatusCode": ".legacy.exceptions",
+        "RedirectHandshake": ".legacy.exceptions",
+        "WebSocketProtocolError": ".legacy.exceptions",
+    },
+)

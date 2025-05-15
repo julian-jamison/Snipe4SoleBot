@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2022
+# Copyright (C) 2015-2025
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -25,18 +25,8 @@ Warning:
     user. Changes to this module are not considered breaking changes and may not be documented in
     the changelog.
 """
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    MutableMapping,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from collections.abc import Coroutine, MutableMapping
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -44,7 +34,7 @@ if TYPE_CHECKING:
     from telegram import Bot
     from telegram.ext import BaseRateLimiter, CallbackContext, JobQueue
 
-CCT = TypeVar("CCT", bound="CallbackContext")
+CCT = TypeVar("CCT", bound="CallbackContext[Any, Any, Any, Any]")
 """An instance of :class:`telegram.ext.CallbackContext` or a custom subclass.
 
 .. versionadded:: 13.6
@@ -63,17 +53,17 @@ JobCallback = Callable[[CCT], Coroutine[Any, Any, Any]]
     .. versionadded:: 20.0
 """
 
-ConversationKey = Tuple[Union[int, str], ...]
+ConversationKey = tuple[Union[int, str], ...]
 ConversationDict = MutableMapping[ConversationKey, object]
-"""Dict[Tuple[:obj:`int` | :obj:`str`, ...], Optional[:obj:`object`]]:
+"""dict[tuple[:obj:`int` | :obj:`str`, ...], Optional[:obj:`object`]]:
     Dicts as maintained by the :class:`telegram.ext.ConversationHandler`.
 
     .. versionadded:: 13.6
 """
 
-CDCData = Tuple[List[Tuple[str, float, Dict[str, Any]]], Dict[str, str]]
-"""Tuple[List[Tuple[:obj:`str`, :obj:`float`, Dict[:obj:`str`, :class:`object`]]], \
-    Dict[:obj:`str`, :obj:`str`]]: Data returned by
+CDCData = tuple[list[tuple[str, float, dict[str, Any]]], dict[str, str]]
+"""tuple[list[tuple[:obj:`str`, :obj:`float`, dict[:obj:`str`, :class:`object`]]], \
+    dict[:obj:`str`, :obj:`str`]]: Data returned by
     :attr:`telegram.ext.CallbackDataCache.persistence_data`.
 
     .. versionadded:: 13.6
@@ -113,3 +103,4 @@ RLARGS = TypeVar("RLARGS")
 """Type of the rate limiter arguments.
 
 .. versionadded:: 20.0"""
+FilterDataDict = dict[str, list[Any]]

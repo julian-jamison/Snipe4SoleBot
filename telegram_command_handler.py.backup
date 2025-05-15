@@ -1,0 +1,204 @@
+import json
+import os
+import time
+import asyncio
+import aiohttp
+import threading
+from telegram.request import _httpxrequest as AiohttpRequest
+from telegram import Update, Bot
+from telegram.ext import ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler
+from decrypt_config import config
+from config_manager import load_decrypted_config
+
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
+
+STATUS_FILE = "bot_status.json"
+PORTFOLIO_FILE = "portfolio.json"
+WALLETS_FILE = "wallets.json"
+
+# Track bot start time globally
+BOT_START_TIME = time.time()
+
+# Create the session inside the event loop
+async def create_session():
+    session = aiohttp.ClientSession()
+    request = AiohttpRequest(session)
+    bot = Bot(token=TELEGRAM_BOT_TOKEN, request=request)
+    return bot, session
+
+telegram_listener_started = False
+
+def schedule_safe_telegram_message(message: str):
+    def run_in_loop():
+        try:
+            asyncio.run(safe_send_telegram_message(message))
+        except RuntimeError as e:
+            print(f"⚠️ Loop error fallback: {e}")
+    threading.Thread(target=run_in_loop).start()
+
+async def safe_send_telegram_message(message: str):
+    print(f"🔄 Attempting to send Telegram message: {message[:40]}...")
+    try:
+        bot, _ = await create_session()  # Create bot session here
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        print(f"📩 Telegram message sent safely: {message}")
+    except Exception as e:
+        print(f"❌ Failed to send Telegram message: {e}")
+
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
+
+    print(f"📩 Received /status from chat_id={update.effective_chat.id}")
+
+    try:
+        # Load current config
+        current_config = load_decrypted_config()
+        
+        # Calculate uptime
+        uptime_seconds = time.time() - BOT_START_TIME
+        uptime_minutes = round(uptime_seconds / 60, 2)
+        
+        # Load status data if available
+        trade_count = 0
+        total_profit = 0.0
+        
+        if os.path.exists(STATUS_FILE):
+            try:
+                with open(STATUS_FILE, "r") as f:
+                    status_data = json.load(f)
+                    trade_count = status_data.get('trade_count', 0)
+                    total_profit = status_data.get('profit', 0.0)
+            except:
+                pass  # If file is corrupted, use defaults
+        
+        # Create status message
+        msg = f"""🤖 *Snipe4SoleBot Status*
+
+📊 *Runtime Stats:*
+• Uptime: {uptime_minutes} minutes
+• Trades Executed: {trade_count}
+• Total Profit/Loss: {total_profit:.4f} SOL
+
+⚙️ *Configuration:*
+• Live Mode: {'Enabled' if current_config.get('api_keys', {}).get('live_mode', False) else 'Disabled'}
+• Min Liquidity: ${current_config.get('trade_settings', {}).get('min_liquidity', 0)}
+• Profit Target: {current_config.get('trade_settings', {}).get('profit_target', 0)}%
+• Stop Loss: {current_config.get('trade_settings', {}).get('stop_loss', 0)}%
+
+🔍 *Monitoring:*
+• Status: 🟢 Active
+• Scanning for new liquidity pools
+"""
+        
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, 
+            text=msg,
+            parse_mode='Markdown'
+        )
+        
+    except Exception as e:
+        error_msg = f"❌ Error loading status: {str(e)}"
+        print(error_msg)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_msg)
+
+async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
+
+    print(f"📩 Received /wallets from chat_id={update.effective_chat.id}")
+
+    try:
+        # Load wallet addresses from config
+        current_config = load_decrypted_config()
+        wallet_addresses = current_config.get('solana_wallets', {})
+        
+        # Filter only trading wallets
+        trading_wallets = {k: v for k, v in wallet_addresses.items() 
+                          if k.startswith('wallet_') and not k.endswith('_key')}
+        
+        if not trading_wallets:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id, 
+                text="⚠️ No trading wallets configured."
+            )
+            return
+        
+        # Create wallet overview message
+        message = "👛 *Trading Wallet Overview:*\n\n"
+        
+        for wallet_name, wallet_address in trading_wallets.items():
+            # Format wallet display
+            short_address = f"{wallet_address[:4]}...{wallet_address[-4:]}"
+            message += f"• {wallet_name}: `{short_address}`\n"
+        
+        # Add cold wallet info if available
+        cold_wallet = wallet_addresses.get('cold_wallet')
+        if cold_wallet:
+            message += f"\n💰 *Cold Wallet:*\n• `{cold_wallet[:4]}...{cold_wallet[-4:]}`"
+        
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, 
+            text=message,
+            parse_mode='Markdown'
+        )
+        
+    except Exception as e:
+        error_msg = f"❌ Failed to load wallets: {str(e)}"
+        print(error_msg)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_msg)
+
+async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"📩 Received /pause from chat_id={update.effective_chat.id}")
+    with open("pause_flag", "w") as f:
+        f.write("1")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
+
+async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"📩 Received /resume from chat_id={update.effective_chat.id}")
+    if os.path.exists("pause_flag"):
+        os.remove("pause_flag")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
+
+async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
+    
+    # Send detailed debug information
+    debug_info = """🔍 *Debug Information*
+    
+• Bot Version: 1.0.0
+• Python Version: 3.x
+• Telegram Connection: ✅ Active
+• Config Loaded: ✅ Success
+    
+*Available Commands:*
+• /status - Bot status
+• /wallets - View wallets
+• /pause - Pause trading
+• /resume - Resume trading
+• /debug - This message
+"""
+    
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, 
+        text=debug_info,
+        parse_mode='Markdown'
+    )
+
+async def run_telegram_command_listener(token):
+    global telegram_listener_started
+    if telegram_listener_started:
+        return
+
+    telegram_listener_started = True
+    print("✅ Starting Telegram command listener...")
+
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("wallets", wallets))
+    app.add_handler(CommandHandler("pause", pause))
+    app.add_handler(CommandHandler("resume", resume))
+    app.add_handler(CommandHandler("debug", debug))
+    await app.run_polling()

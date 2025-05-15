@@ -4,16 +4,18 @@ import base64
 import binascii
 import email.utils
 import http
-from typing import Generator, List, Optional, Sequence, Tuple, cast
+import re
+import warnings
+from collections.abc import Generator, Sequence
+from typing import Any, Callable, cast
 
-from .connection import CONNECTING, OPEN, SERVER, Connection, State
 from .datastructures import Headers, MultipleValuesError
 from .exceptions import (
     InvalidHandshake,
     InvalidHeader,
     InvalidHeaderValue,
+    InvalidMessage,
     InvalidOrigin,
-    InvalidStatus,
     InvalidUpgrade,
     NegotiationError,
 )
@@ -26,55 +28,68 @@ from .headers import (
     parse_upgrade,
 )
 from .http11 import Request, Response
+from .imports import lazy_import
+from .protocol import CONNECTING, OPEN, SERVER, Protocol, State
 from .typing import (
     ConnectionOption,
     ExtensionHeader,
     LoggerLike,
     Origin,
+    StatusLike,
     Subprotocol,
     UpgradeProtocol,
 )
 from .utils import accept_key
 
 
-# See #940 for why lazy_import isn't used here for backwards compatibility.
-from .legacy.server import *  # isort:skip  # noqa
+__all__ = ["ServerProtocol"]
 
 
-__all__ = ["ServerConnection"]
-
-
-class ServerConnection(Connection):
+class ServerProtocol(Protocol):
     """
     Sans-I/O implementation of a WebSocket server connection.
 
     Args:
-        origins: acceptable values of the ``Origin`` header; include
+        origins: Acceptable values of the ``Origin`` header. Values can be
+            :class:`str` to test for an exact match or regular expressions
+            compiled by :func:`re.compile` to test against a pattern. Include
             :obj:`None` in the list if the lack of an origin is acceptable.
             This is useful for defending against Cross-Site WebSocket
             Hijacking attacks.
-        extensions: list of supported extensions, in order in which they
+        extensions: List of supported extensions, in order in which they
             should be tried.
-        subprotocols: list of supported subprotocols, in order of decreasing
+        subprotocols: List of supported subprotocols, in order of decreasing
             preference.
-        state: initial state of the WebSocket connection.
-        max_size: maximum size of incoming messages in bytes;
-            :obj:`None` to disable the limit.
-        logger: logger for this connection;
-            defaults to ``logging.getLogger("websockets.client")``;
-            see the :doc:`logging guide <../topics/logging>` for details.
+        select_subprotocol: Callback for selecting a subprotocol among
+            those supported by the client and the server. It has the same
+            signature as the :meth:`select_subprotocol` method, including a
+            :class:`ServerProtocol` instance as first argument.
+        state: Initial state of the WebSocket connection.
+        max_size: Maximum size of incoming messages in bytes;
+            :obj:`None` disables the limit.
+        logger: Logger for this connection;
+            defaults to ``logging.getLogger("websockets.server")``;
+            see the :doc:`logging guide <../../topics/logging>` for details.
 
     """
 
     def __init__(
         self,
-        origins: Optional[Sequence[Optional[Origin]]] = None,
-        extensions: Optional[Sequence[ServerExtensionFactory]] = None,
-        subprotocols: Optional[Sequence[Subprotocol]] = None,
+        *,
+        origins: Sequence[Origin | re.Pattern[str] | None] | None = None,
+        extensions: Sequence[ServerExtensionFactory] | None = None,
+        subprotocols: Sequence[Subprotocol] | None = None,
+        select_subprotocol: (
+            Callable[
+                [ServerProtocol, Sequence[Subprotocol]],
+                Subprotocol | None,
+            ]
+            | None
+        ) = None,
         state: State = CONNECTING,
-        max_size: Optional[int] = 2**20,
-        logger: Optional[LoggerLike] = None,
-    ):
+        max_size: int | None = 2**20,
+        logger: LoggerLike | None = None,
+    ) -> None:
         super().__init__(
             side=SERVER,
             state=state,
@@ -84,23 +99,35 @@ class ServerConnection(Connection):
         self.origins = origins
         self.available_extensions = extensions
         self.available_subprotocols = subprotocols
+        if select_subprotocol is not None:
+            # Bind select_subprotocol then shadow self.select_subprotocol.
+            # Use setattr to work around https://github.com/python/mypy/issues/2427.
+            setattr(
+                self,
+                "select_subprotocol",
+                select_subprotocol.__get__(self, self.__class__),
+            )
 
     def accept(self, request: Request) -> Response:
         """
         Create a handshake response to accept the connection.
 
-        If the connection cannot be established, the handshake response
-        actually rejects the handshake.
+        If the handshake request is valid and the handshake successful,
+        :meth:`accept` returns an HTTP response with status code 101.
+
+        Else, it returns an HTTP response with another status code. This rejects
+        the connection, like :meth:`reject` would.
 
         You must send the handshake response with :meth:`send_response`.
 
-        You can modify it before sending it, for example to add HTTP headers.
+        You may modify the response before sending it, typically by adding HTTP
+        headers.
 
         Args:
-            request: WebSocket handshake request event received from the client.
+            request: WebSocket handshake request received from the client.
 
         Returns:
-            Response: WebSocket handshake response event to send to the client.
+            WebSocket handshake response or HTTP response to send to the client.
 
         """
         try:
@@ -139,11 +166,18 @@ class ServerConnection(Connection):
             self.handshake_exc = exc
             if self.debug:
                 self.logger.debug("! invalid handshake", exc_info=True)
+            exc_chain = cast(BaseException, exc)
+            exc_str = f"{exc_chain}"
+            while exc_chain.__cause__ is not None:
+                exc_chain = exc_chain.__cause__
+                exc_str += f"; {exc_chain}"
             return self.reject(
                 http.HTTPStatus.BAD_REQUEST,
-                f"Failed to open a WebSocket connection: {exc}.\n",
+                f"Failed to open a WebSocket connection: {exc_str}.\n",
             )
         except Exception as exc:
+            # Handle exceptions raised by user-provided select_subprotocol and
+            # unexpected errors.
             request._exception = exc
             self.handshake_exc = exc
             self.logger.error("opening handshake failed", exc_info=True)
@@ -156,25 +190,20 @@ class ServerConnection(Connection):
             )
 
         headers = Headers()
-
         headers["Date"] = email.utils.formatdate(usegmt=True)
-
         headers["Upgrade"] = "websocket"
         headers["Connection"] = "Upgrade"
         headers["Sec-WebSocket-Accept"] = accept_header
-
         if extensions_header is not None:
             headers["Sec-WebSocket-Extensions"] = extensions_header
-
         if protocol_header is not None:
             headers["Sec-WebSocket-Protocol"] = protocol_header
-
-        self.logger.info("connection open")
         return Response(101, "Switching Protocols", headers)
 
     def process_request(
-        self, request: Request
-    ) -> Tuple[str, Optional[str], Optional[str]]:
+        self,
+        request: Request,
+    ) -> tuple[str, str | None, str | None]:
         """
         Check a handshake request and negotiate extensions and subprotocol.
 
@@ -187,30 +216,27 @@ class ServerConnection(Connection):
             request: WebSocket handshake request received from the client.
 
         Returns:
-            Tuple[str, Optional[str], Optional[str]]:
             ``Sec-WebSocket-Accept``, ``Sec-WebSocket-Extensions``, and
             ``Sec-WebSocket-Protocol`` headers for the handshake response.
 
         Raises:
-            InvalidHandshake: if the handshake request is invalid;
+            InvalidHandshake: If the handshake request is invalid;
                 then the server must return 400 Bad Request error.
 
         """
         headers = request.headers
 
-        connection: List[ConnectionOption] = sum(
+        connection: list[ConnectionOption] = sum(
             [parse_connection(value) for value in headers.get_all("Connection")], []
         )
-
         if not any(value.lower() == "upgrade" for value in connection):
             raise InvalidUpgrade(
                 "Connection", ", ".join(connection) if connection else None
             )
 
-        upgrade: List[UpgradeProtocol] = sum(
+        upgrade: list[UpgradeProtocol] = sum(
             [parse_upgrade(value) for value in headers.get_all("Upgrade")], []
         )
-
         # For compatibility with non-strict implementations, ignore case when
         # checking the Upgrade header. The RFC always uses "websocket", except
         # in section 11.2. (IANA registration) where it uses "WebSocket".
@@ -219,48 +245,34 @@ class ServerConnection(Connection):
 
         try:
             key = headers["Sec-WebSocket-Key"]
-        except KeyError as exc:
-            raise InvalidHeader("Sec-WebSocket-Key") from exc
-        except MultipleValuesError as exc:
-            raise InvalidHeader(
-                "Sec-WebSocket-Key", "more than one Sec-WebSocket-Key header found"
-            ) from exc
-
+        except KeyError:
+            raise InvalidHeader("Sec-WebSocket-Key") from None
+        except MultipleValuesError:
+            raise InvalidHeader("Sec-WebSocket-Key", "multiple values") from None
         try:
             raw_key = base64.b64decode(key.encode(), validate=True)
         except binascii.Error as exc:
             raise InvalidHeaderValue("Sec-WebSocket-Key", key) from exc
         if len(raw_key) != 16:
             raise InvalidHeaderValue("Sec-WebSocket-Key", key)
+        accept_header = accept_key(key)
 
         try:
             version = headers["Sec-WebSocket-Version"]
-        except KeyError as exc:
-            raise InvalidHeader("Sec-WebSocket-Version") from exc
-        except MultipleValuesError as exc:
-            raise InvalidHeader(
-                "Sec-WebSocket-Version",
-                "more than one Sec-WebSocket-Version header found",
-            ) from exc
-
+        except KeyError:
+            raise InvalidHeader("Sec-WebSocket-Version") from None
+        except MultipleValuesError:
+            raise InvalidHeader("Sec-WebSocket-Version", "multiple values") from None
         if version != "13":
             raise InvalidHeaderValue("Sec-WebSocket-Version", version)
 
-        accept_header = accept_key(key)
-
         self.origin = self.process_origin(headers)
-
         extensions_header, self.extensions = self.process_extensions(headers)
-
         protocol_header = self.subprotocol = self.process_subprotocol(headers)
 
-        return (
-            accept_header,
-            extensions_header,
-            protocol_header,
-        )
+        return (accept_header, extensions_header, protocol_header)
 
-    def process_origin(self, headers: Headers) -> Optional[Origin]:
+    def process_origin(self, headers: Headers) -> Origin | None:
         """
         Handle the Origin HTTP request header.
 
@@ -268,35 +280,45 @@ class ServerConnection(Connection):
             headers: WebSocket handshake request headers.
 
         Returns:
-           Optional[Origin]: origin, if it is acceptable.
+           origin, if it is acceptable.
 
         Raises:
-            InvalidOrigin: if the origin isn't acceptable.
+            InvalidHandshake: If the Origin header is invalid.
+            InvalidOrigin: If the origin isn't acceptable.
 
         """
         # "The user agent MUST NOT include more than one Origin header field"
-        # per https://www.rfc-editor.org/rfc/rfc6454.html#section-7.3.
+        # per https://datatracker.ietf.org/doc/html/rfc6454#section-7.3.
         try:
-            origin = cast(Optional[Origin], headers.get("Origin"))
-        except MultipleValuesError as exc:
-            raise InvalidHeader("Origin", "more than one Origin header found") from exc
+            origin = headers.get("Origin")
+        except MultipleValuesError:
+            raise InvalidHeader("Origin", "multiple values") from None
+        if origin is not None:
+            origin = cast(Origin, origin)
         if self.origins is not None:
-            if origin not in self.origins:
+            for origin_or_regex in self.origins:
+                if origin_or_regex == origin or (
+                    isinstance(origin_or_regex, re.Pattern)
+                    and origin is not None
+                    and origin_or_regex.fullmatch(origin) is not None
+                ):
+                    break
+            else:
                 raise InvalidOrigin(origin)
         return origin
 
     def process_extensions(
         self,
         headers: Headers,
-    ) -> Tuple[Optional[str], List[Extension]]:
+    ) -> tuple[str | None, list[Extension]]:
         """
         Handle the Sec-WebSocket-Extensions HTTP request header.
 
         Accept or reject each extension proposed in the client request.
         Negotiate parameters for accepted extensions.
 
-        :rfc:`6455` leaves the rules up to the specification of each
-        :extension.
+        Per :rfc:`6455`, negotiation rules are defined by the specification of
+        each extension.
 
         To provide this level of flexibility, for each extension proposed by
         the client, we check for a match with each extension available in the
@@ -317,30 +339,27 @@ class ServerConnection(Connection):
             headers: WebSocket handshake request headers.
 
         Returns:
-            Tuple[Optional[str], List[Extension]]: ``Sec-WebSocket-Extensions``
-            HTTP response header and list of accepted extensions.
+            ``Sec-WebSocket-Extensions`` HTTP response header and list of
+            accepted extensions.
 
         Raises:
-            InvalidHandshake: to abort the handshake with an HTTP 400 error.
+            InvalidHandshake: If the Sec-WebSocket-Extensions header is invalid.
 
         """
-        response_header_value: Optional[str] = None
+        response_header_value: str | None = None
 
-        extension_headers: List[ExtensionHeader] = []
-        accepted_extensions: List[Extension] = []
+        extension_headers: list[ExtensionHeader] = []
+        accepted_extensions: list[Extension] = []
 
         header_values = headers.get_all("Sec-WebSocket-Extensions")
 
         if header_values and self.available_extensions:
-
-            parsed_header_values: List[ExtensionHeader] = sum(
+            parsed_header_values: list[ExtensionHeader] = sum(
                 [parse_extension(header_value) for header_value in header_values], []
             )
 
             for name, request_params in parsed_header_values:
-
                 for ext_factory in self.available_extensions:
-
                     # Skip non-matching extensions based on their name.
                     if ext_factory.name != name:
                         continue
@@ -369,7 +388,7 @@ class ServerConnection(Connection):
 
         return response_header_value, accepted_extensions
 
-    def process_subprotocol(self, headers: Headers) -> Optional[Subprotocol]:
+    def process_subprotocol(self, headers: Headers) -> Subprotocol | None:
         """
         Handle the Sec-WebSocket-Protocol HTTP request header.
 
@@ -377,70 +396,83 @@ class ServerConnection(Connection):
             headers: WebSocket handshake request headers.
 
         Returns:
-           Optional[Subprotocol]: Subprotocol, if one was selected; this is
-           also the value of the ``Sec-WebSocket-Protocol`` response header.
+           Subprotocol, if one was selected; this is also the value of the
+           ``Sec-WebSocket-Protocol`` response header.
 
         Raises:
-            InvalidHandshake: to abort the handshake with an HTTP 400 error.
+            InvalidHandshake: If the Sec-WebSocket-Subprotocol header is invalid.
 
         """
-        subprotocol: Optional[Subprotocol] = None
-
-        header_values = headers.get_all("Sec-WebSocket-Protocol")
-
-        if header_values and self.available_subprotocols:
-
-            parsed_header_values: List[Subprotocol] = sum(
-                [parse_subprotocol(header_value) for header_value in header_values], []
-            )
-
-            subprotocol = self.select_subprotocol(
-                parsed_header_values, self.available_subprotocols
-            )
-
-        return subprotocol
+        subprotocols: Sequence[Subprotocol] = sum(
+            [
+                parse_subprotocol(header_value)
+                for header_value in headers.get_all("Sec-WebSocket-Protocol")
+            ],
+            [],
+        )
+        return self.select_subprotocol(subprotocols)
 
     def select_subprotocol(
         self,
-        client_subprotocols: Sequence[Subprotocol],
-        server_subprotocols: Sequence[Subprotocol],
-    ) -> Optional[Subprotocol]:
+        subprotocols: Sequence[Subprotocol],
+    ) -> Subprotocol | None:
         """
         Pick a subprotocol among those offered by the client.
 
-        If several subprotocols are supported by the client and the server,
-        the default implementation selects the preferred subprotocols by
-        giving equal value to the priorities of the client and the server.
+        If several subprotocols are supported by both the client and the server,
+        pick the first one in the list declared the server.
 
-        If no common subprotocol is supported by the client and the server, it
-        proceeds without a subprotocol.
+        If the server doesn't support any subprotocols, continue without a
+        subprotocol, regardless of what the client offers.
 
-        This is unlikely to be the most useful implementation in practice, as
-        many servers providing a subprotocol will require that the client uses
-        that subprotocol.
+        If the server supports at least one subprotocol and the client doesn't
+        offer any, abort the handshake with an HTTP 400 error.
+
+        You provide a ``select_subprotocol`` argument to :class:`ServerProtocol`
+        to override this logic. For example, you could accept the connection
+        even if client doesn't offer a subprotocol, rather than reject it.
+
+        Here's how to negotiate the ``chat`` subprotocol if the client supports
+        it and continue without a subprotocol otherwise::
+
+            def select_subprotocol(protocol, subprotocols):
+                if "chat" in subprotocols:
+                    return "chat"
 
         Args:
-            client_subprotocols: list of subprotocols offered by the client.
-            server_subprotocols: list of subprotocols available on the server.
+            subprotocols: List of subprotocols offered by the client.
 
         Returns:
-            Optional[Subprotocol]: Subprotocol, if a common subprotocol was
-            found.
+            Selected subprotocol, if a common subprotocol was found.
+
+            :obj:`None` to continue without a subprotocol.
+
+        Raises:
+            NegotiationError: Custom implementations may raise this exception
+                to abort the handshake with an HTTP 400 error.
 
         """
-        subprotocols = set(client_subprotocols) & set(server_subprotocols)
-        if not subprotocols:
+        # Server doesn't offer any subprotocols.
+        if not self.available_subprotocols:  # None or empty list
             return None
-        priority = lambda p: (
-            client_subprotocols.index(p) + server_subprotocols.index(p)
-        )
-        return sorted(subprotocols, key=priority)[0]
 
-    def reject(
-        self,
-        status: http.HTTPStatus,
-        text: str,
-    ) -> Response:
+        # Server offers at least one subprotocol but client doesn't offer any.
+        if not subprotocols:
+            raise NegotiationError("missing subprotocol")
+
+        # Server and client both offer subprotocols. Look for a shared one.
+        proposed_subprotocols = set(subprotocols)
+        for subprotocol in self.available_subprotocols:
+            if subprotocol in proposed_subprotocols:
+                return subprotocol
+
+        # No common subprotocol was found.
+        raise NegotiationError(
+            "invalid subprotocol; expected one of "
+            + ", ".join(self.available_subprotocols)
+        )
+
+    def reject(self, status: StatusLike, text: str) -> Response:
         """
         Create a handshake response to reject the connection.
 
@@ -449,16 +481,19 @@ class ServerConnection(Connection):
 
         You must send the handshake response with :meth:`send_response`.
 
-        You can modify it before sending it, for example to alter HTTP headers.
+        You may modify the response before sending it, for example by changing
+        HTTP headers.
 
         Args:
             status: HTTP status code.
-            text: HTTP response body; will be encoded to UTF-8.
+            text: HTTP response body; it will be encoded to UTF-8.
 
         Returns:
-            Response: WebSocket handshake response event to send to the client.
+            HTTP response to send to the client.
 
         """
+        # If status is an int instead of an HTTPStatus, fix it automatically.
+        status = http.HTTPStatus(status)
         body = text.encode()
         headers = Headers(
             [
@@ -468,14 +503,7 @@ class ServerConnection(Connection):
                 ("Content-Type", "text/plain; charset=utf-8"),
             ]
         )
-        response = Response(status.value, status.phrase, headers, body)
-        # When reject() is called from accept(), handshake_exc is already set.
-        # If a user calls reject(), set handshake_exc to guarantee invariant:
-        # "handshake_exc is None if and only if opening handshake succeded."
-        if self.handshake_exc is None:
-            self.handshake_exc = InvalidStatus(response)
-        self.logger.info("connection failed (%d %s)", status.value, status.phrase)
-        return response
+        return Response(status.value, status.phrase, headers, body)
 
     def send_response(self, response: Response) -> None:
         """
@@ -490,7 +518,7 @@ class ServerConnection(Connection):
             self.logger.debug("> HTTP/1.1 %d %s", code, phrase)
             for key, value in response.headers.raw_items():
                 self.logger.debug("> %s: %s", key, value)
-            if response.body is not None:
+            if response.body:
                 self.logger.debug("> [body] (%d bytes)", len(response.body))
 
         self.writes.append(response.serialize())
@@ -498,14 +526,34 @@ class ServerConnection(Connection):
         if response.status_code == 101:
             assert self.state is CONNECTING
             self.state = OPEN
+            self.logger.info("connection open")
+
         else:
+            self.logger.info(
+                "connection rejected (%d %s)",
+                response.status_code,
+                response.reason_phrase,
+            )
+
             self.send_eof()
             self.parser = self.discard()
             next(self.parser)  # start coroutine
 
-    def parse(self) -> Generator[None, None, None]:
+    def parse(self) -> Generator[None]:
         if self.state is CONNECTING:
-            request = yield from Request.parse(self.reader.read_line)
+            try:
+                request = yield from Request.parse(
+                    self.reader.read_line,
+                )
+            except Exception as exc:
+                self.handshake_exc = InvalidMessage(
+                    "did not receive a valid HTTP request"
+                )
+                self.handshake_exc.__cause__ = exc
+                self.send_eof()
+                self.parser = self.discard()
+                next(self.parser)  # start coroutine
+                yield
 
             if self.debug:
                 self.logger.debug("< GET %s HTTP/1.1", request.path)
@@ -515,3 +563,25 @@ class ServerConnection(Connection):
             self.events.append(request)
 
         yield from super().parse()
+
+
+class ServerConnection(ServerProtocol):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warnings.warn(  # deprecated in 11.0 - 2023-04-02
+            "ServerConnection was renamed to ServerProtocol",
+            DeprecationWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+
+lazy_import(
+    globals(),
+    deprecated_aliases={
+        # deprecated in 14.0 - 2024-11-09
+        "WebSocketServer": ".legacy.server",
+        "WebSocketServerProtocol": ".legacy.server",
+        "broadcast": ".legacy.server",
+        "serve": ".legacy.server",
+        "unix_serve": ".legacy.server",
+    },
+)

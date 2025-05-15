@@ -1,547 +1,350 @@
-"""
-Resilient mempool_monitor.py that handles skipped blocks and uses multiple approaches
-"""
-from __future__ import annotations
-
+# Import statements
 import asyncio
 import json
 import logging
 import os
 import time
-import requests
-import json
-import os
+from typing import List, Dict, Optional, Any
+import aiohttp
+import base64
+from solana.rpc.core import RPCException
+from tenacity import retry, stop_after_attempt, wait_exponential
+from config_manager import load_decrypted_config
 from telegram_notifications import send_telegram_message
-from requests.adapters import HTTPAdapter, Retry
-from telegram_notifications import safe_send_telegram_message
-from decrypt_config import config
 
-# Replace with your actual Helius RPC endpoint
-SOLANA_MEMPOOL_API = "https://mainnet.helius-rpc.com/?api-key=3b31521d-eeb6-4665-b500-08a071ba3263"
+# Initialize logger first
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(__name__)
 
-# Real DEX program IDs (confirmed)
-DEX_PROGRAM_IDS = [
-    "rvHXrsyTrcRhTbkTJchfU3T9iU21WLCGMDu9zT4TuDw",  # Raydium AMM
-    "nExF8aV2KXMo8bJpu9A4gQ2T2xnKxB9EdKmXKj7iCsN",  # Orca AMM
-    "8Y8n1xfkoEvXxBAaLw3mcQgw3m1ahdt9YrcmWZz5w5EZ"   # Pump.fun Liquidity
-]
+def get_helius_api_key():
+    """Extract Helius API key from the RPC URL."""
+    config = load_decrypted_config()
+    rpc_url = config.get('api_keys', {}).get('solana_rpc_url', '')
+    
+    # Extract API key from URL
+    if 'api-key=' in rpc_url:
+        api_key = rpc_url.split('api-key=')[-1]
+        if '&' in api_key:
+            api_key = api_key.split('&')[0]
+        return api_key
+    return None
 
-SEEN_SIGNATURES_FILE = "seen_signatures.json"
+def get_helius_rpc_url():
+    """Get the Helius RPC URL from config."""
+    config = load_decrypted_config()
+    return config.get('api_keys', {}).get('solana_rpc_url', '')
 
-# Load seen signatures from file
-if os.path.exists(SEEN_SIGNATURES_FILE):
-    with open(SEEN_SIGNATURES_FILE, "r") as f:
-        SEEN_SIGNATURES = set(json.load(f))
+# Get configuration
+HELIUS_API_KEY = get_helius_api_key()
+HELIUS_RPC_URL = get_helius_rpc_url()
+
+# Log the RPC URL being used
+LOGGER.info(f"Using Helius RPC endpoint: {HELIUS_RPC_URL}")
+
+# Log the API key for debugging (only first few characters)
+if HELIUS_API_KEY:
+    LOGGER.info(f"Found Helius API key: {HELIUS_API_KEY[:5]}...{HELIUS_API_KEY[-4:]}")
 else:
-    SEEN_SIGNATURES = set()
+    LOGGER.warning("No Helius API key found in RPC URL")
 
-def persist_seen_signatures():
-    """Save seen transaction signatures to disk."""
-    with open(SEEN_SIGNATURES_FILE, "w") as f:
-        json.dump(list(SEEN_SIGNATURES), f)
+# Helius WebSocket URL
+HELIUS_WS_URL = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 
-def check_mempool():
-    """
-    Monitors the Solana mempool using Helius `searchTransactions` for early liquidity events.
-    """
-    print("⏳ Scanning mempool for new liquidity pool transactions via Helius...")
+# DEX programs to monitor
+DEX_PROGRAMS = {
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "Raydium LP V4",
+    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "Orca",
+    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBymtzvT": "Meteora"
+}
 
-    headers = {"Content-Type": "application/json"}
+LOGGER.info(f"Monitoring {len(DEX_PROGRAMS)} DEX programs: {list(DEX_PROGRAMS.keys())}")
 
-    for program_id in DEX_PROGRAM_IDS:
+SOLANA_NATIVE_MINT = "So11111111111111111111111111111111111111112"
+USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+USDT_MINT = "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"
+
+# Known honeypot tokens to avoid
+HONEYPOT_TOKENS = {
+    "7atgF8KQo4wJrD5ATGX7t1V2zVvykPJbFfNeVf1icFv1",  # Known scam token
+    # Add more as discovered
+}
+
+# Token blacklist (e.g., known scams, honeypots)
+TOKEN_BLACKLIST = {
+    'ANvDJgYvf8nHyMYbKBBkL34gR5p8nfcZVB5JFGyELrQE',  # Example blacklisted token
+    'D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf',  # SafeMoon V2
+    # Add more blacklisted tokens here
+}
+
+class MempoolMonitor:
+    """WebSocket-based mempool monitor for Solana using Helius."""
+    
+    def __init__(self, session: Optional[aiohttp.ClientSession] = None):
+        """Initialize the mempool monitor."""
+        self.session = session
+        self.latest_blockhash = None
+        self.websocket = None
+        self.is_connected = False
+        
+        # Initialize Helius connection
+        LOGGER.info("Initializing mempool monitor...")
+        if self._test_helius_connection():
+            LOGGER.info("✅ Helius RPC connection test successful")
+        else:
+            LOGGER.error("❌ Failed to connect to Helius RPC")
+    
+    def _test_helius_connection(self) -> bool:
+        """Test the Helius RPC connection."""
+        try:
+            import requests
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getHealth"
+            }
+            
+            response = requests.post(HELIUS_RPC_URL, headers=headers, json=payload, timeout=5)
+            result = response.json()
+            
+            if result.get("result") == "ok":
+                LOGGER.info("✅ Helius RPC connection test successful: %s", result.get("result"))
+                return True
+            else:
+                LOGGER.error("❌ Helius RPC health check failed: %s", result)
+                return False
+                
+        except Exception as e:
+            LOGGER.error("❌ Failed to test Helius connection: %s", str(e))
+            return False
+    
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    async def connect_websocket(self):
+        """Connect to Helius WebSocket with retry logic."""
+        try:
+            self.websocket = await self.session.ws_connect(
+                HELIUS_WS_URL,
+                heartbeat=30,
+                timeout=60
+            )
+            self.is_connected = True
+            LOGGER.info("✅ Connected to Helius WebSocket")
+            
+            # Subscribe to all DEX programs
+            await self._subscribe_to_programs()
+            
+        except Exception as e:
+            self.is_connected = False
+            LOGGER.error(f"❌ Failed to connect to WebSocket: {str(e)}")
+            raise
+    
+    async def _subscribe_to_programs(self):
+        """Subscribe to program accounts for all DEX programs."""
+        for program_id, program_name in DEX_PROGRAMS.items():
+            subscribe_msg = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "programSubscribe",
+                "params": [
+                    program_id,
+                    {
+                        "encoding": "jsonParsed",
+                        "commitment": "confirmed"
+                    }
+                ]
+            }
+            
+            await self.websocket.send_json(subscribe_msg)
+            LOGGER.info(f"📡 Subscribed to {program_name} ({program_id})")
+    
+    async def start_monitoring(self, callback):
+        """Start monitoring the mempool via WebSocket."""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        
+        try:
+            await self.connect_websocket()
+            
+            async for msg in self.websocket:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    try:
+                        data = json.loads(msg.data)
+                        if "params" in data:
+                            await self._process_transaction(data["params"], callback)
+                    except json.JSONDecodeError:
+                        LOGGER.error(f"Failed to decode message: {msg.data}")
+                        
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    LOGGER.error(f'WebSocket error: {self.websocket.exception()}')
+                    
+                elif msg.type == aiohttp.WSMsgType.CLOSED:
+                    LOGGER.warning("WebSocket connection closed")
+                    break
+                    
+        except Exception as e:
+            LOGGER.error(f"Error in WebSocket monitoring: {str(e)}")
+        finally:
+            if self.websocket and not self.websocket.closed:
+                await self.websocket.close()
+            self.is_connected = False
+    
+    async def _process_transaction(self, params: Dict[str, Any], callback):
+        """Process a transaction from the WebSocket stream."""
+        try:
+            result = params.get("result", {})
+            value = result.get("value", {})
+            
+            # Get transaction data
+            slot = value.get("slot")
+            signature = value.get("signature")
+            
+            # Get account updates
+            account_data = value.get("account", {})
+            parsed_data = account_data.get("data", {}).get("parsed", {})
+            
+            # Check if this is a liquidity pool creation
+            if self._is_liquidity_pool_creation(parsed_data):
+                pool_info = self._extract_pool_info(parsed_data, signature)
+                if pool_info:
+                    LOGGER.info(f"🎯 New liquidity pool detected: {pool_info}")
+                    await callback(pool_info)
+                    
+        except Exception as e:
+            LOGGER.error(f"Error processing transaction: {str(e)}")
+    
+    def _is_liquidity_pool_creation(self, parsed_data: Dict[str, Any]) -> bool:
+        """Check if the transaction creates a new liquidity pool."""
+        try:
+            info = parsed_data.get("info", {})
+            instruction_type = parsed_data.get("type", "")
+            
+            # Check for different DEX pool creation patterns
+            if instruction_type in ["initializePool", "createPool", "initialize"]:
+                return True
+                
+            # Check for token mints that might indicate a new pool
+            if "mintA" in info and "mintB" in info:
+                return True
+                
+            return False
+            
+        except Exception as e:
+            LOGGER.error(f"Error checking pool creation: {str(e)}")
+            return False
+    
+    def _extract_pool_info(self, parsed_data: Dict[str, Any], signature: str) -> Optional[Dict[str, Any]]:
+        """Extract pool information from parsed transaction data."""
+        try:
+            info = parsed_data.get("info", {})
+            
+            # Extract token mints
+            token_a = info.get("mintA", info.get("tokenMintA"))
+            token_b = info.get("mintB", info.get("tokenMintB"))
+            
+            if not token_a or not token_b:
+                return None
+            
+            # Extract pool address if available
+            pool_address = info.get("poolAddress", info.get("account", signature))
+            
+            return {
+                "pool_address": pool_address,
+                "token_a": token_a,
+                "token_b": token_b,
+                "created_at": time.time(),
+                "signature": signature
+            }
+            
+        except Exception as e:
+            LOGGER.error(f"Error extracting pool info: {str(e)}")
+            return None
+    
+    async def get_pool_info_http(self, pool_address: str) -> Optional[Dict[str, Any]]:
+        """Get pool information via HTTP RPC call."""
+        try:
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getAccountInfo",
+                "params": [
+                    pool_address,
+                    {
+                        "encoding": "jsonParsed",
+                        "commitment": "confirmed"
+                    }
+                ]
+            }
+            
+            async with self.session.post(HELIUS_RPC_URL, headers=headers, json=payload) as response:
+                result = await response.json()
+                
+                if "error" in result:
+                    LOGGER.error(f"RPC error getting pool info: {result['error']}")
+                    return None
+                
+                account_data = result.get("result", {}).get("value", {})
+                if not account_data:
+                    return None
+                
+                parsed_data = account_data.get("data", {}).get("parsed", {})
+                return self._extract_pool_info(parsed_data, pool_address)
+                
+        except Exception as e:
+            LOGGER.error(f"Error getting pool info via HTTP: {str(e)}")
+            return None
+    
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def _get_recent_blockhash(self):
+        """Get recent blockhash with retry."""
+        headers = {"Content-Type": "application/json"}
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "searchTransactions",
-            "params": {
-                "query": f"accountKeys:{program_id}",
-                "limit": 5,
-                "sort": "desc"
-            }
+            "method": "getLatestBlockhash",
+            "params": [{"commitment": "finalized"}]
         }
+        
+        async with self.session.post(HELIUS_RPC_URL, headers=headers, json=payload) as response:
+            result = await response.json()
+            if "error" in result:
+                raise Exception(f"RPC Error: {result['error']}")
+            
+            blockhash_info = result.get("result", {}).get("value", {})
+            return blockhash_info.get("blockhash")
 
-        try:
-            response = requests.post(SOLANA_MEMPOOL_API, json=payload, headers=headers, timeout=5)
-            response.raise_for_status()
-            transactions = response.json().get("result", [])
+# Legacy function for backward compatibility
+def get_new_liquidity_pools():
+    """Legacy function - now returns empty list as we use WebSocket monitoring."""
+    return []
 
-            for tx in transactions:
-                sig = tx.get("signature")
-                if sig and sig not in SEEN_SIGNATURES:
-                    SEEN_SIGNATURES.add(sig)
-                    persist_seen_signatures()
-
-                    instructions = tx.get("instructions", [])
-                    for ix in instructions:
-                        if "initialize" in ix.get("parsedInstructionType", ""):
-                            token = tx.get("description", {}).get("tokenTransfers", [{}])[0].get("mint", "Unknown")
-                            print(f"🚀 Potential new pool: {token} via {program_id}")
-                            send_telegram_message(f"🚀 Mempool: New liquidity pool or token detected: {token}")
-                            return token
-
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ Error fetching mempool via Helius for {program_id}: {e}")
-            send_telegram_message(f"⚠️ Mempool check failed for {program_id}")
-
-    return None
-
-# Optional manual testing loop
-if __name__ == "__main__":
-    while True:
-        pool = check_mempool()
-        if pool:
-            print(f"🔥 Found new liquidity pool: {pool}")
-        time.sleep(10)
-# ─── Helius / RPC endpoint detection ─────────────────────────────────────────
-# Get API key from config or environment
-_HELIUS_KEY = None
-
-# Check direct api_keys.helius path
-if isinstance(config, dict) and "api_keys" in config and "helius" in config["api_keys"]:
-    _HELIUS_KEY = config["api_keys"]["helius"]
+# Async function to check for new pools
+async def check_new_pools_async():
+    """Async function to check for new pools via WebSocket."""
+    monitor = MempoolMonitor()
+    pools = []
     
-# Fallback to environment variable
-if not _HELIUS_KEY:
-    _HELIUS_KEY = os.getenv("HELIUS_API_KEY")
-
-# Correct Helius API endpoints from documentation
-HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={_HELIUS_KEY}"
-HELIUS_REST_API_URL = "https://mainnet.helius-rpc.com"
-
-LOGGER.info(f"Using Helius RPC endpoint: {HELIUS_RPC_URL}")
-if _HELIUS_KEY:
-    LOGGER.info(f"Found Helius API key: {_HELIUS_KEY[:5]}...{_HELIUS_KEY[-4:]}")
-else:
-    LOGGER.warning("No Helius API key found!")
-
-# ─── AMM program IDs (Raydium, Orca, Pump.fun default) ────────────────────
-DEFAULT_PROGRAMS = (
-    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",  # Raydium AMM V4
-    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",  # Orca Whirlpool
-    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBymtzvT",  # Pump.fun
-)
-DEX_PROGRAM_IDS: List[str] = []
-for pid in os.getenv("DEX_PROGRAM_IDS", ",".join(DEFAULT_PROGRAMS)).split(","):
-    clean_pid = pid.strip()
-    if clean_pid and 32 <= len(clean_pid) <= 44:
-        DEX_PROGRAM_IDS.append(clean_pid)
-
-if not DEX_PROGRAM_IDS:
-    DEX_PROGRAM_IDS = list(DEFAULT_PROGRAMS)
-
-LOGGER.info(f"Monitoring {len(DEX_PROGRAM_IDS)} DEX programs: {DEX_PROGRAM_IDS}")
-
-# ─── request tuning ────────────────────────────────────────────────────────
-POLL_LIMIT: int = int(os.getenv("MEMPOOL_POLL_LIMIT", 5))
-HTTP_TIMEOUT: int = int(os.getenv("HTTP_TIMEOUT", 10))
-
-# ─── persistence for seen data ─────────────────────────────────────────────
-MONITOR_STATE_FILE = Path(os.getenv("MONITOR_STATE_FILE", "monitor_state.json"))
-_SEEN_SIGS = set()
-_LAST_CHECKED_SLOT = 0
-_MOCK_POOL_COUNT = 0  # For testing
-
-if MONITOR_STATE_FILE.exists():
+    async def pool_callback(pool_info):
+        pools.append(pool_info)
+    
+    # Run for a short time to collect any new pools
     try:
-        data = json.loads(MONITOR_STATE_FILE.read_text())
-        _SEEN_SIGS = set(data.get("signatures", []))
-        _LAST_CHECKED_SLOT = data.get("last_slot", 0)
-        _MOCK_POOL_COUNT = data.get("mock_count", 0)
-    except json.JSONDecodeError:
-        LOGGER.warning("Invalid JSON in state file. Starting fresh.")
+        await asyncio.wait_for(
+            monitor.start_monitoring(pool_callback),
+            timeout=5.0
+        )
+    except asyncio.TimeoutError:
+        pass
+    
+    return pools
 
-
-def _persist_state() -> None:
-    """Write monitor state to disk."""
-    data = {
-        "signatures": list(_SEEN_SIGS)[-10000:],  # Keep last 10k signatures
-        "last_slot": _LAST_CHECKED_SLOT,
-        "mock_count": _MOCK_POOL_COUNT,
-        "timestamp": time.time()
-    }
-    MONITOR_STATE_FILE.write_text(json.dumps(data))
-
-# ─── resilient HTTP session ───────────────────────────────────────────────
-
-def _session() -> requests.Session:
-    retry = Retry(
-        total=2,
-        backoff_factor=0.5,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["POST", "GET"],
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    s = requests.Session()
-    s.mount("https://", adapter)
-    s.mount("http://", adapter)
-    return s
-
-SESSION = _session()
-
-# ─── Telegram notify helper ─────────────────────────────────────────────────
-
-def _notify(message: str) -> None:
-    """Thread-safe wrapper to schedule our async Telegram send."""
+# Synchronous wrapper for async function
+def check_new_pools():
+    """Check for new pools synchronously."""
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        asyncio.run_coroutine_threadsafe(
-            safe_send_telegram_message(message), loop
-        )
-    else:
-        asyncio.run(safe_send_telegram_message(message))
-
-# ─── Mock pool generation for testing ──────────────────────────────────────
-
-def _generate_mock_pool() -> Optional[Dict[str, Any]]:
-    """Generate mock pool data for testing (very rare)."""
-    global _MOCK_POOL_COUNT
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     
-    # Only generate mock data if API is having issues and rarely
-    import random
-    if random.random() > 0.002:  # 0.2% chance
-        return None
-        
-    _MOCK_POOL_COUNT += 1
-    program = random.choice(DEX_PROGRAM_IDS)
-    mock_mint = f"MOCK{int(time.time())}_{_MOCK_POOL_COUNT}"
-    
-    return {
-        "mint": mock_mint,
-        "signature": f"mock_sig_{int(time.time())}_{_MOCK_POOL_COUNT}",
-        "program": program,
-        "timestamp": time.time(),
-        "baseMint": mock_mint,
-        "is_mock": True
-    }
-
-# ─── RPC request with error handling ───────────────────────────────────────
-
-def _make_rpc_request(method: str, params: List[Any]) -> Optional[Dict]:
-    """Make a standard JSON-RPC request to Helius."""
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": method,
-        "params": params
-    }
-    
-    try:
-        response = SESSION.post(
-            HELIUS_RPC_URL,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=HTTP_TIMEOUT
-        )
-        
-        if response.status_code != 200:
-            return None
-            
-        data = response.json()
-        
-        if "error" in data:
-            # Log different error types appropriately
-            error_code = data["error"].get("code", 0)
-            error_msg = data["error"].get("message", "")
-            
-            # Skip expected errors silently
-            if error_code in [-32009, -32019]:  # Skipped slot or storage error
-                return None
-            else:
-                LOGGER.warning(f"API error for {method}: {data['error']}")
-            return None
-            
-        return data.get("result")
-    except Exception as e:
-        LOGGER.debug(f"Request error for {method}: {e}")
-        return None
-
-# ─── Hybrid monitoring approach ────────────────────────────────────────────
-
-def _get_recent_confirmed_transactions() -> List[Dict[str, Any]]:
-    """Get recent confirmed transactions using getRecentBlockhash approach."""
-    try:
-        # Get recent blockhash info
-        blockhash_info = _make_rpc_request("getLatestBlockhash", [])
-        if not blockhash_info:
-            return []
-            
-        current_slot = blockhash_info.get("context", {}).get("slot", 0)
-        if current_slot == 0:
-            return []
-            
-        # Try recent slots that are likely to be confirmed
-        transactions = []
-        slots_to_check = []
-        
-        # Generate a list of recent slots to check (skip some to avoid missing slots)
-        for i in range(0, 10, 2):  # Check every 2nd slot to reduce chances of hitting skipped slots
-            slots_to_check.append(current_slot - i)
-            
-        for slot in slots_to_check:
-            if slot <= _LAST_CHECKED_SLOT:
-                continue
-                
-            # Get confirmed block (not just any block)
-            block_data = _make_rpc_request(
-                "getBlock",
-                [
-                    slot,
-                    {
-                        "encoding": "jsonParsed",
-                        "transactionDetails": "full",
-                        "maxSupportedTransactionVersion": 0,
-                        "commitment": "confirmed"  # Use confirmed commitment
-                    }
-                ]
-            )
-            
-            if block_data:
-                transactions.extend(_extract_pool_transactions(block_data, slot))
-        
-        return transactions
-    except Exception as e:
-        LOGGER.debug(f"Error getting recent transactions: {e}")
-        return []
-
-
-def _extract_pool_transactions(block_data: Dict, slot: int) -> List[Dict[str, Any]]:
-    """Extract potential pool creation transactions from block data."""
-    pool_transactions = []
-    
-    try:
-        if "transactions" not in block_data:
-            return []
-            
-        for tx_wrapper in block_data["transactions"]:
-            if not isinstance(tx_wrapper, dict):
-                continue
-                
-            meta = tx_wrapper.get("meta", {})
-            # Skip failed transactions
-            if meta.get("err") is not None:
-                continue
-                
-            tx = tx_wrapper.get("transaction", {})
-            signatures = tx.get("signatures", [])
-            signature = signatures[0] if signatures else None
-            
-            if not signature or signature in _SEEN_SIGS:
-                continue
-                
-            message = tx.get("message", {})
-            instructions = message.get("instructions", [])
-            
-            # Look for DEX program interactions
-            for instruction in instructions:
-                if not isinstance(instruction, dict):
-                    continue
-                    
-                program_id = instruction.get("programId", "")
-                if program_id not in DEX_PROGRAM_IDS:
-                    continue
-                    
-                # Check for pool initialization patterns
-                parsed = instruction.get("parsed", {})
-                if isinstance(parsed, dict):
-                    instruction_type = parsed.get("type", "").lower()
-                    # Look for initialization-related instructions
-                    if any(word in instruction_type for word in ["initialize", "create", "init", "pool"]):
-                        # Extract mint information
-                        info = parsed.get("info", {})
-                        token_mint = None
-                        
-                        if isinstance(info, dict):
-                            # Try various field names
-                            token_mint = (info.get("mint") or 
-                                        info.get("tokenMint") or 
-                                        info.get("baseMint") or 
-                                        info.get("tokenPool") or
-                                        info.get("poolMint"))
-                        
-                        # Fallback to accounts
-                        if not token_mint:
-                            accounts = instruction.get("accounts", [])
-                            for account in accounts:
-                                if isinstance(account, str) and len(account) > 30 and account != program_id:
-                                    token_mint = account
-                                    break
-                        
-                        if token_mint and token_mint != program_id:
-                            pool_transactions.append({
-                                "mint": token_mint,
-                                "signature": signature,
-                                "program": program_id,
-                                "timestamp": block_data.get("blockTime", time.time()),
-                                "slot": slot,
-                                "instruction_type": instruction_type
-                            })
-                            _SEEN_SIGS.add(signature)
-                            
-    except Exception as e:
-        LOGGER.debug(f"Error extracting pool transactions: {e}")
-        
-    return pool_transactions
-
-
-def check_mempool() -> Optional[Dict[str, Any]]:
-    """Main function to check for new liquidity pools."""
-    global _LAST_CHECKED_SLOT
-    
-    try:
-        # Try to get recent transactions
-        pool_transactions = _get_recent_confirmed_transactions()
-        
-        # Process found transactions
-        for tx in pool_transactions:
-            if tx.get("mint"):
-                LOGGER.info(f"🚀 Pool init detected: {tx['mint']} via {tx['program']}")
-                _notify(
-                    f"🚀 New liquidity pool detected!\n"
-                    f"Token: {tx['mint'][:8]}...{tx['mint'][-4:]}\n"
-                    f"DEX: {_get_dex_name(tx['program'])}\n"
-                    f"Type: {tx.get('instruction_type', 'Unknown')}"
-                )
-                
-                # Update last checked slot
-                if tx.get("slot", 0) > _LAST_CHECKED_SLOT:
-                    _LAST_CHECKED_SLOT = tx["slot"]
-                    
-                _persist_state()
-                return tx
-        
-        # Update slot if we've checked new ones
-        if pool_transactions:
-            max_slot = max(tx.get("slot", 0) for tx in pool_transactions)
-            if max_slot > _LAST_CHECKED_SLOT:
-                _LAST_CHECKED_SLOT = max_slot
-                _persist_state()
-        
-        # Fallback to mock data if API is struggling
-        if not pool_transactions:
-            mock_pool = _generate_mock_pool()
-            if mock_pool:
-                LOGGER.info("🧪 Generated mock pool for testing")
-                _notify(
-                    f"🧪 Mock pool detected (API fallback)\n"
-                    f"Token: {mock_pool['mint']}\n"
-                    f"DEX: {_get_dex_name(mock_pool['program'])}"
-                )
-                return mock_pool
-                
-    except Exception as e:
-        LOGGER.debug(f"Error in mempool check: {e}")
-        
-    return None
-
-
-def _get_dex_name(program_id: str) -> str:
-    """Get friendly name for DEX programs."""
-    dex_names = {
-        "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "Raydium",
-        "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "Orca",
-        "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBymtzvT": "Pump.fun",
-    }
-    return dex_names.get(program_id, f"{program_id[:8]}...")
-
-
-def get_new_liquidity_pools() -> Optional[List[Dict[str, Any]]]:
-    """Check for new liquidity pools and return as a list."""
-    pool = check_mempool()
-    return [pool] if pool else None
-
-
-# ─── Async monitoring ──────────────────────────────────────────────────────
-
-_monitor_task = None
-
-async def init_mempool_monitor():
-    """Initialize the mempool monitor."""
-    global _monitor_task
-    
-    LOGGER.info("Initializing mempool monitor...")
-    
-    try:
-        # Test connection
-        result = _make_rpc_request("getHealth", [])
-        if result:
-            LOGGER.info(f"✅ Helius RPC connection test successful: {result}")
-        else:
-            LOGGER.warning("⚠️ Helius connection test failed - continuing anyway")
-        
-        # Create monitoring task
-        if _monitor_task is None or _monitor_task.done():
-            _monitor_task = asyncio.create_task(async_check_mempool_loop())
-            
-        return _monitor_task
-    except Exception as e:
-        LOGGER.error(f"Error initializing monitor: {e}")
-        if _monitor_task is None or _monitor_task.done():
-            _monitor_task = asyncio.create_task(async_check_mempool_loop())
-        return _monitor_task
-
-
-async def async_check_mempool_loop():
-    """Asynchronous loop to check mempool periodically."""
-    LOGGER.info("Starting async mempool check loop")
-    
-    while True:
-        try:
-            # Run check in executor
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(None, check_mempool)
-            
-            if result:
-                LOGGER.info(f"🔥 Found pool: {result['mint']}")
-                
-            # Check every 10 seconds
-            await asyncio.sleep(10)
-        except asyncio.CancelledError:
-            LOGGER.info("Mempool check loop cancelled")
-            break
-        except Exception as e:
-            LOGGER.error(f"Error in check loop: {e}")
-            await asyncio.sleep(30)
-
-
-async def shutdown_mempool_monitor(task=None):
-    """Shutdown the mempool monitor."""
-    global _monitor_task
-    
-    if task is None:
-        task = _monitor_task
-        
-    if task and not task.done():
-        LOGGER.info("Shutting down mempool monitor...")
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-        
-        _monitor_task = None
-        LOGGER.info("Mempool monitor shutdown complete")
-
-
-if __name__ == "__main__":
-    LOGGER.info("Standalone mempool monitor – press Ctrl‑C to stop.")
-    
-    print("\nTesting Helius API connection...")
-    health = _make_rpc_request("getHealth", [])
-    print(f"Health check: {health}")
-    
-    print("\nStarting continuous monitoring...")
-    
-    try:
-        while True:
-            pool = check_mempool()
-            if pool:
-                print(f"🔥 Found pool: {pool}")
-            else:
-                print(".", end="", flush=True)
-            time.sleep(10)
-    except KeyboardInterrupt:
-        print("\nMempool monitor stopped")
+    return loop.run_until_complete(check_new_pools_async())

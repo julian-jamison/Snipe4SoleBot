@@ -1,18 +1,23 @@
+from __future__ import annotations
+
+import logging
 import ssl
-import typing
 
-from socksio import socks5
+import socksio
 
+from .._backends.sync import SyncBackend
+from .._backends.base import NetworkBackend, NetworkStream
 from .._exceptions import ConnectionNotAvailable, ProxyError
 from .._models import URL, Origin, Request, Response, enforce_bytes, enforce_url
 from .._ssl import default_ssl_context
 from .._synchronization import Lock
 from .._trace import Trace
-from ..backends.sync import SyncBackend
-from ..backends.base import NetworkBackend, NetworkStream
 from .connection_pool import ConnectionPool
 from .http11 import HTTP11Connection
 from .interfaces import ConnectionInterface
+
+logger = logging.getLogger("httpcore.socks")
+
 
 AUTH_METHODS = {
     b"\x00": "NO AUTHENTICATION REQUIRED",
@@ -39,24 +44,24 @@ def _init_socks5_connection(
     *,
     host: bytes,
     port: int,
-    auth: typing.Optional[typing.Tuple[bytes, bytes]] = None,
+    auth: tuple[bytes, bytes] | None = None,
 ) -> None:
-    conn = socks5.SOCKS5Connection()
+    conn = socksio.socks5.SOCKS5Connection()
 
     # Auth method request
     auth_method = (
-        socks5.SOCKS5AuthMethod.NO_AUTH_REQUIRED
+        socksio.socks5.SOCKS5AuthMethod.NO_AUTH_REQUIRED
         if auth is None
-        else socks5.SOCKS5AuthMethod.USERNAME_PASSWORD
+        else socksio.socks5.SOCKS5AuthMethod.USERNAME_PASSWORD
     )
-    conn.send(socks5.SOCKS5AuthMethodsRequest([auth_method]))
+    conn.send(socksio.socks5.SOCKS5AuthMethodsRequest([auth_method]))
     outgoing_bytes = conn.data_to_send()
     stream.write(outgoing_bytes)
 
     # Auth method response
     incoming_bytes = stream.read(max_bytes=4096)
     response = conn.receive_data(incoming_bytes)
-    assert isinstance(response, socks5.SOCKS5AuthReply)
+    assert isinstance(response, socksio.socks5.SOCKS5AuthReply)
     if response.method != auth_method:
         requested = AUTH_METHODS.get(auth_method, "UNKNOWN")
         responded = AUTH_METHODS.get(response.method, "UNKNOWN")
@@ -64,25 +69,25 @@ def _init_socks5_connection(
             f"Requested {requested} from proxy server, but got {responded}."
         )
 
-    if response.method == socks5.SOCKS5AuthMethod.USERNAME_PASSWORD:
+    if response.method == socksio.socks5.SOCKS5AuthMethod.USERNAME_PASSWORD:
         # Username/password request
         assert auth is not None
         username, password = auth
-        conn.send(socks5.SOCKS5UsernamePasswordRequest(username, password))
+        conn.send(socksio.socks5.SOCKS5UsernamePasswordRequest(username, password))
         outgoing_bytes = conn.data_to_send()
         stream.write(outgoing_bytes)
 
         # Username/password response
         incoming_bytes = stream.read(max_bytes=4096)
         response = conn.receive_data(incoming_bytes)
-        assert isinstance(response, socks5.SOCKS5UsernamePasswordReply)
+        assert isinstance(response, socksio.socks5.SOCKS5UsernamePasswordReply)
         if not response.success:
             raise ProxyError("Invalid username/password")
 
     # Connect request
     conn.send(
-        socks5.SOCKS5CommandRequest.from_address(
-            socks5.SOCKS5Command.CONNECT, (host, port)
+        socksio.socks5.SOCKS5CommandRequest.from_address(
+            socksio.socks5.SOCKS5Command.CONNECT, (host, port)
         )
     )
     outgoing_bytes = conn.data_to_send()
@@ -91,30 +96,29 @@ def _init_socks5_connection(
     # Connect response
     incoming_bytes = stream.read(max_bytes=4096)
     response = conn.receive_data(incoming_bytes)
-    assert isinstance(response, socks5.SOCKS5Reply)
-    if response.reply_code != socks5.SOCKS5ReplyCode.SUCCEEDED:
+    assert isinstance(response, socksio.socks5.SOCKS5Reply)
+    if response.reply_code != socksio.socks5.SOCKS5ReplyCode.SUCCEEDED:
         reply_code = REPLY_CODES.get(response.reply_code, "UNKOWN")
         raise ProxyError(f"Proxy Server could not connect: {reply_code}.")
 
 
-class SOCKSProxy(ConnectionPool):
+class SOCKSProxy(ConnectionPool):  # pragma: nocover
     """
     A connection pool that sends requests via an HTTP proxy.
     """
 
     def __init__(
         self,
-        proxy_url: typing.Union[URL, bytes, str],
-        proxy_auth: typing.Optional[
-            typing.Tuple[typing.Union[bytes, str], typing.Union[bytes, str]]
-        ] = None,
-        ssl_context: typing.Optional[ssl.SSLContext] = None,
-        max_connections: typing.Optional[int] = 10,
-        max_keepalive_connections: typing.Optional[int] = None,
-        keepalive_expiry: typing.Optional[float] = None,
+        proxy_url: URL | bytes | str,
+        proxy_auth: tuple[bytes | str, bytes | str] | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+        max_connections: int | None = 10,
+        max_keepalive_connections: int | None = None,
+        keepalive_expiry: float | None = None,
         http1: bool = True,
         http2: bool = False,
-        network_backend: typing.Optional[NetworkBackend] = None,
+        retries: int = 0,
+        network_backend: NetworkBackend | None = None,
     ) -> None:
         """
         A connection pool for making HTTP requests.
@@ -154,6 +158,7 @@ class SOCKSProxy(ConnectionPool):
             http1=http1,
             http2=http2,
             network_backend=network_backend,
+            retries=retries,
         )
         self._ssl_context = ssl_context
         self._proxy_url = enforce_url(proxy_url, name="proxy_url")
@@ -161,7 +166,7 @@ class SOCKSProxy(ConnectionPool):
             username, password = proxy_auth
             username_bytes = enforce_bytes(username, name="proxy_auth")
             password_bytes = enforce_bytes(password, name="proxy_auth")
-            self._proxy_auth: typing.Optional[typing.Tuple[bytes, bytes]] = (
+            self._proxy_auth: tuple[bytes, bytes] | None = (
                 username_bytes,
                 password_bytes,
             )
@@ -186,12 +191,12 @@ class Socks5Connection(ConnectionInterface):
         self,
         proxy_origin: Origin,
         remote_origin: Origin,
-        proxy_auth: typing.Optional[typing.Tuple[bytes, bytes]] = None,
-        ssl_context: typing.Optional[ssl.SSLContext] = None,
-        keepalive_expiry: typing.Optional[float] = None,
+        proxy_auth: tuple[bytes, bytes] | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+        keepalive_expiry: float | None = None,
         http1: bool = True,
         http2: bool = False,
-        network_backend: typing.Optional[NetworkBackend] = None,
+        network_backend: NetworkBackend | None = None,
     ) -> None:
         self._proxy_origin = proxy_origin
         self._remote_origin = remote_origin
@@ -205,11 +210,12 @@ class Socks5Connection(ConnectionInterface):
             SyncBackend() if network_backend is None else network_backend
         )
         self._connect_lock = Lock()
-        self._connection: typing.Optional[ConnectionInterface] = None
+        self._connection: ConnectionInterface | None = None
         self._connect_failed = False
 
     def handle_request(self, request: Request) -> Response:
         timeouts = request.extensions.get("timeout", {})
+        sni_hostname = request.extensions.get("sni_hostname", None)
         timeout = timeouts.get("connect", None)
 
         with self._connect_lock:
@@ -221,7 +227,7 @@ class Socks5Connection(ConnectionInterface):
                         "port": self._proxy_origin.port,
                         "timeout": timeout,
                     }
-                    with Trace("connection.connect_tcp", request, kwargs) as trace:
+                    with Trace("connect_tcp", logger, request, kwargs) as trace:
                         stream = self._network_backend.connect_tcp(**kwargs)
                         trace.return_value = stream
 
@@ -233,7 +239,7 @@ class Socks5Connection(ConnectionInterface):
                         "auth": self._proxy_auth,
                     }
                     with Trace(
-                        "connection.setup_socks5_connection", request, kwargs
+                        "setup_socks5_connection", logger, request, kwargs
                     ) as trace:
                         _init_socks5_connection(**kwargs)
                         trace.return_value = stream
@@ -252,12 +258,11 @@ class Socks5Connection(ConnectionInterface):
 
                         kwargs = {
                             "ssl_context": ssl_context,
-                            "server_hostname": self._remote_origin.host.decode("ascii"),
+                            "server_hostname": sni_hostname
+                            or self._remote_origin.host.decode("ascii"),
                             "timeout": timeout,
                         }
-                        with Trace(
-                            "connection.start_tls", request, kwargs
-                        ) as trace:
+                        with Trace("start_tls", logger, request, kwargs) as trace:
                             stream = stream.start_tls(**kwargs)
                             trace.return_value = stream
 

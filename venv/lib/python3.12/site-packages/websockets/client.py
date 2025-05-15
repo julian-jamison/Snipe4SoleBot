@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import Generator, List, Optional, Sequence
+import os
+import random
+import warnings
+from collections.abc import Generator, Sequence
+from typing import Any
 
-from .connection import CLIENT, CONNECTING, OPEN, Connection, State
 from .datastructures import Headers, MultipleValuesError
 from .exceptions import (
     InvalidHandshake,
     InvalidHeader,
     InvalidHeaderValue,
+    InvalidMessage,
     InvalidStatus,
     InvalidUpgrade,
     NegotiationError,
@@ -24,6 +28,8 @@ from .headers import (
     parse_upgrade,
 )
 from .http11 import Request, Response
+from .imports import lazy_import
+from .protocol import CLIENT, CONNECTING, OPEN, Protocol, State
 from .typing import (
     ConnectionOption,
     ExtensionHeader,
@@ -36,59 +42,56 @@ from .uri import WebSocketURI
 from .utils import accept_key, generate_key
 
 
-# See #940 for why lazy_import isn't used here for backwards compatibility.
-from .legacy.client import *  # isort:skip  # noqa
+__all__ = ["ClientProtocol"]
 
 
-__all__ = ["ClientConnection"]
-
-
-class ClientConnection(Connection):
+class ClientProtocol(Protocol):
     """
     Sans-I/O implementation of a WebSocket client connection.
 
     Args:
-        wsuri: URI of the WebSocket server, parsed
+        uri: URI of the WebSocket server, parsed
             with :func:`~websockets.uri.parse_uri`.
-        origin: value of the ``Origin`` header. This is useful when connecting
+        origin: Value of the ``Origin`` header. This is useful when connecting
             to a server that validates the ``Origin`` header to defend against
             Cross-Site WebSocket Hijacking attacks.
-        extensions: list of supported extensions, in order in which they
+        extensions: List of supported extensions, in order in which they
             should be tried.
-        subprotocols: list of supported subprotocols, in order of decreasing
+        subprotocols: List of supported subprotocols, in order of decreasing
             preference.
-        state: initial state of the WebSocket connection.
-        max_size: maximum size of incoming messages in bytes;
-            :obj:`None` to disable the limit.
-        logger: logger for this connection;
+        state: Initial state of the WebSocket connection.
+        max_size: Maximum size of incoming messages in bytes;
+            :obj:`None` disables the limit.
+        logger: Logger for this connection;
             defaults to ``logging.getLogger("websockets.client")``;
-            see the :doc:`logging guide <../topics/logging>` for details.
+            see the :doc:`logging guide <../../topics/logging>` for details.
 
     """
 
     def __init__(
         self,
-        wsuri: WebSocketURI,
-        origin: Optional[Origin] = None,
-        extensions: Optional[Sequence[ClientExtensionFactory]] = None,
-        subprotocols: Optional[Sequence[Subprotocol]] = None,
+        uri: WebSocketURI,
+        *,
+        origin: Origin | None = None,
+        extensions: Sequence[ClientExtensionFactory] | None = None,
+        subprotocols: Sequence[Subprotocol] | None = None,
         state: State = CONNECTING,
-        max_size: Optional[int] = 2**20,
-        logger: Optional[LoggerLike] = None,
-    ):
+        max_size: int | None = 2**20,
+        logger: LoggerLike | None = None,
+    ) -> None:
         super().__init__(
             side=CLIENT,
             state=state,
             max_size=max_size,
             logger=logger,
         )
-        self.wsuri = wsuri
+        self.uri = uri
         self.origin = origin
         self.available_extensions = extensions
         self.available_subprotocols = subprotocols
         self.key = generate_key()
 
-    def connect(self) -> Request:  # noqa: F811
+    def connect(self) -> Request:
         """
         Create a handshake request to open a connection.
 
@@ -97,40 +100,31 @@ class ClientConnection(Connection):
         You can modify it before sending it, for example to add HTTP headers.
 
         Returns:
-            Request: WebSocket handshake request event to send to the server.
+            WebSocket handshake request event to send to the server.
 
         """
         headers = Headers()
-
-        headers["Host"] = build_host(
-            self.wsuri.host, self.wsuri.port, self.wsuri.secure
-        )
-
-        if self.wsuri.user_info:
-            headers["Authorization"] = build_authorization_basic(*self.wsuri.user_info)
-
+        headers["Host"] = build_host(self.uri.host, self.uri.port, self.uri.secure)
+        if self.uri.user_info:
+            headers["Authorization"] = build_authorization_basic(*self.uri.user_info)
         if self.origin is not None:
             headers["Origin"] = self.origin
-
         headers["Upgrade"] = "websocket"
         headers["Connection"] = "Upgrade"
         headers["Sec-WebSocket-Key"] = self.key
         headers["Sec-WebSocket-Version"] = "13"
-
         if self.available_extensions is not None:
-            extensions_header = build_extension(
+            headers["Sec-WebSocket-Extensions"] = build_extension(
                 [
                     (extension_factory.name, extension_factory.get_request_params())
                     for extension_factory in self.available_extensions
                 ]
             )
-            headers["Sec-WebSocket-Extensions"] = extensions_header
-
         if self.available_subprotocols is not None:
-            protocol_header = build_subprotocol(self.available_subprotocols)
-            headers["Sec-WebSocket-Protocol"] = protocol_header
-
-        return Request(self.wsuri.resource_name, headers)
+            headers["Sec-WebSocket-Protocol"] = build_subprotocol(
+                self.available_subprotocols
+            )
+        return Request(self.uri.resource_name, headers)
 
     def process_response(self, response: Response) -> None:
         """
@@ -140,7 +134,7 @@ class ClientConnection(Connection):
             request: WebSocket handshake response received from the server.
 
         Raises:
-            InvalidHandshake: if the handshake response is invalid.
+            InvalidHandshake: If the handshake response is invalid.
 
         """
 
@@ -149,19 +143,17 @@ class ClientConnection(Connection):
 
         headers = response.headers
 
-        connection: List[ConnectionOption] = sum(
+        connection: list[ConnectionOption] = sum(
             [parse_connection(value) for value in headers.get_all("Connection")], []
         )
-
         if not any(value.lower() == "upgrade" for value in connection):
             raise InvalidUpgrade(
                 "Connection", ", ".join(connection) if connection else None
             )
 
-        upgrade: List[UpgradeProtocol] = sum(
+        upgrade: list[UpgradeProtocol] = sum(
             [parse_upgrade(value) for value in headers.get_all("Upgrade")], []
         )
-
         # For compatibility with non-strict implementations, ignore case when
         # checking the Upgrade header. It's supposed to be 'WebSocket'.
         if not (len(upgrade) == 1 and upgrade[0].lower() == "websocket"):
@@ -169,22 +161,17 @@ class ClientConnection(Connection):
 
         try:
             s_w_accept = headers["Sec-WebSocket-Accept"]
-        except KeyError as exc:
-            raise InvalidHeader("Sec-WebSocket-Accept") from exc
-        except MultipleValuesError as exc:
-            raise InvalidHeader(
-                "Sec-WebSocket-Accept",
-                "more than one Sec-WebSocket-Accept header found",
-            ) from exc
-
+        except KeyError:
+            raise InvalidHeader("Sec-WebSocket-Accept") from None
+        except MultipleValuesError:
+            raise InvalidHeader("Sec-WebSocket-Accept", "multiple values") from None
         if s_w_accept != accept_key(self.key):
             raise InvalidHeaderValue("Sec-WebSocket-Accept", s_w_accept)
 
         self.extensions = self.process_extensions(headers)
-
         self.subprotocol = self.process_subprotocol(headers)
 
-    def process_extensions(self, headers: Headers) -> List[Extension]:
+    def process_extensions(self, headers: Headers) -> list[Extension]:
         """
         Handle the Sec-WebSocket-Extensions HTTP response header.
 
@@ -209,29 +196,26 @@ class ClientConnection(Connection):
             headers: WebSocket handshake response headers.
 
         Returns:
-            List[Extension]: List of accepted extensions.
+            List of accepted extensions.
 
         Raises:
-            InvalidHandshake: to abort the handshake.
+            InvalidHandshake: To abort the handshake.
 
         """
-        accepted_extensions: List[Extension] = []
+        accepted_extensions: list[Extension] = []
 
         extensions = headers.get_all("Sec-WebSocket-Extensions")
 
         if extensions:
-
             if self.available_extensions is None:
-                raise InvalidHandshake("no extensions supported")
+                raise NegotiationError("no extensions supported")
 
-            parsed_extensions: List[ExtensionHeader] = sum(
+            parsed_extensions: list[ExtensionHeader] = sum(
                 [parse_extension(header_value) for header_value in extensions], []
             )
 
             for name, response_params in parsed_extensions:
-
                 for extension_factory in self.available_extensions:
-
                     # Skip non-matching extensions based on their name.
                     if extension_factory.name != name:
                         continue
@@ -260,7 +244,7 @@ class ClientConnection(Connection):
 
         return accepted_extensions
 
-    def process_subprotocol(self, headers: Headers) -> Optional[Subprotocol]:
+    def process_subprotocol(self, headers: Headers) -> Subprotocol | None:
         """
         Handle the Sec-WebSocket-Protocol HTTP response header.
 
@@ -270,28 +254,27 @@ class ClientConnection(Connection):
             headers: WebSocket handshake response headers.
 
         Returns:
-           Optional[Subprotocol]: Subprotocol, if one was selected.
+           Subprotocol, if one was selected.
 
         """
-        subprotocol: Optional[Subprotocol] = None
+        subprotocol: Subprotocol | None = None
 
         subprotocols = headers.get_all("Sec-WebSocket-Protocol")
 
         if subprotocols:
-
             if self.available_subprotocols is None:
-                raise InvalidHandshake("no subprotocols supported")
+                raise NegotiationError("no subprotocols supported")
 
             parsed_subprotocols: Sequence[Subprotocol] = sum(
                 [parse_subprotocol(header_value) for header_value in subprotocols], []
             )
-
             if len(parsed_subprotocols) > 1:
-                subprotocols_display = ", ".join(parsed_subprotocols)
-                raise InvalidHandshake(f"multiple subprotocols: {subprotocols_display}")
+                raise InvalidHeader(
+                    "Sec-WebSocket-Protocol",
+                    f"multiple values: {', '.join(parsed_subprotocols)}",
+                )
 
             subprotocol = parsed_subprotocols[0]
-
             if subprotocol not in self.available_subprotocols:
                 raise NegotiationError(f"unsupported subprotocol: {subprotocol}")
 
@@ -312,33 +295,95 @@ class ClientConnection(Connection):
 
         self.writes.append(request.serialize())
 
-    def parse(self) -> Generator[None, None, None]:
+    def parse(self) -> Generator[None]:
         if self.state is CONNECTING:
-            response = yield from Response.parse(
-                self.reader.read_line,
-                self.reader.read_exact,
-                self.reader.read_to_eof,
-            )
+            try:
+                response = yield from Response.parse(
+                    self.reader.read_line,
+                    self.reader.read_exact,
+                    self.reader.read_to_eof,
+                )
+            except Exception as exc:
+                self.handshake_exc = InvalidMessage(
+                    "did not receive a valid HTTP response"
+                )
+                self.handshake_exc.__cause__ = exc
+                self.send_eof()
+                self.parser = self.discard()
+                next(self.parser)  # start coroutine
+                yield
 
             if self.debug:
                 code, phrase = response.status_code, response.reason_phrase
                 self.logger.debug("< HTTP/1.1 %d %s", code, phrase)
                 for key, value in response.headers.raw_items():
                     self.logger.debug("< %s: %s", key, value)
-                if response.body is not None:
+                if response.body:
                     self.logger.debug("< [body] (%d bytes)", len(response.body))
 
             try:
                 self.process_response(response)
             except InvalidHandshake as exc:
                 response._exception = exc
+                self.events.append(response)
                 self.handshake_exc = exc
+                self.send_eof()
                 self.parser = self.discard()
                 next(self.parser)  # start coroutine
-            else:
-                assert self.state is CONNECTING
-                self.state = OPEN
-            finally:
-                self.events.append(response)
+                yield
+
+            assert self.state is CONNECTING
+            self.state = OPEN
+            self.events.append(response)
 
         yield from super().parse()
+
+
+class ClientConnection(ClientProtocol):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warnings.warn(  # deprecated in 11.0 - 2023-04-02
+            "ClientConnection was renamed to ClientProtocol",
+            DeprecationWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+
+BACKOFF_INITIAL_DELAY = float(os.environ.get("WEBSOCKETS_BACKOFF_INITIAL_DELAY", "5"))
+BACKOFF_MIN_DELAY = float(os.environ.get("WEBSOCKETS_BACKOFF_MIN_DELAY", "3.1"))
+BACKOFF_MAX_DELAY = float(os.environ.get("WEBSOCKETS_BACKOFF_MAX_DELAY", "90.0"))
+BACKOFF_FACTOR = float(os.environ.get("WEBSOCKETS_BACKOFF_FACTOR", "1.618"))
+
+
+def backoff(
+    initial_delay: float = BACKOFF_INITIAL_DELAY,
+    min_delay: float = BACKOFF_MIN_DELAY,
+    max_delay: float = BACKOFF_MAX_DELAY,
+    factor: float = BACKOFF_FACTOR,
+) -> Generator[float]:
+    """
+    Generate a series of backoff delays between reconnection attempts.
+
+    Yields:
+        How many seconds to wait before retrying to connect.
+
+    """
+    # Add a random initial delay between 0 and 5 seconds.
+    # See 7.2.3. Recovering from Abnormal Closure in RFC 6455.
+    yield random.random() * initial_delay
+    delay = min_delay
+    while delay < max_delay:
+        yield delay
+        delay *= factor
+    while True:
+        yield max_delay
+
+
+lazy_import(
+    globals(),
+    deprecated_aliases={
+        # deprecated in 14.0 - 2024-11-09
+        "WebSocketClientProtocol": ".legacy.client",
+        "connect": ".legacy.client",
+        "unix_connect": ".legacy.client",
+    },
+)

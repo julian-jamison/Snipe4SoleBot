@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2022
+# Copyright (C) 2015-2025
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -35,14 +35,20 @@ import re
 from html import escape
 from typing import TYPE_CHECKING, Optional, Union
 
-from telegram.constants import MessageType
+from telegram._utils.types import MarkdownVersion
+from telegram.constants import MessageLimit, MessageType
 
 if TYPE_CHECKING:
     from telegram import Message, Update
 
 
-def escape_markdown(text: str, version: int = 1, entity_type: str = None) -> str:
+def escape_markdown(
+    text: str, version: MarkdownVersion = 1, entity_type: Optional[str] = None
+) -> str:
     """Helper function to escape telegram markup symbols.
+
+    .. versionchanged:: 20.3
+        Custom emoji entity escaping is now supported.
 
     Args:
         text (:obj:`str`): The text.
@@ -50,17 +56,18 @@ def escape_markdown(text: str, version: int = 1, entity_type: str = None) -> str
             Either ``1`` or ``2``. Defaults to ``1``.
         entity_type (:obj:`str`, optional): For the entity types
             :tg-const:`telegram.MessageEntity.PRE`, :tg-const:`telegram.MessageEntity.CODE` and
-            the link part of :tg-const:`telegram.MessageEntity.TEXT_LINK`, only certain characters
-            need to be escaped in :tg-const:`telegram.constants.ParseMode.MARKDOWN_V2`.
-            See the official API documentation for details. Only valid in combination with
-            ``version=2``, will be ignored else.
+            the link part of :tg-const:`telegram.MessageEntity.TEXT_LINK` and
+            :tg-const:`telegram.MessageEntity.CUSTOM_EMOJI`, only certain characters need to be
+            escaped in :tg-const:`telegram.constants.ParseMode.MARKDOWN_V2`. See the `official API
+            documentation <https://core.telegram.org/bots/api#formatting-options>`_ for details.
+            Only valid in combination with ``version=2``, will be ignored else.
     """
     if int(version) == 1:
         escape_chars = r"_*`["
     elif int(version) == 2:
         if entity_type in ["pre", "code"]:
             escape_chars = r"\`"
-        elif entity_type == "text_link":
+        elif entity_type in ["text_link", "custom_emoji"]:
             escape_chars = r"\)"
         else:
             escape_chars = r"\_*[]()~`>#+-=|{}.!"
@@ -84,7 +91,7 @@ def mention_html(user_id: Union[int, str], name: str) -> str:
     return f'<a href="tg://user?id={user_id}">{escape(name)}</a>'
 
 
-def mention_markdown(user_id: Union[int, str], name: str, version: int = 1) -> str:
+def mention_markdown(user_id: Union[int, str], name: str, version: MarkdownVersion = 1) -> str:
     """
     Helper function to create a user mention in Markdown syntax.
 
@@ -136,7 +143,9 @@ def effective_message_type(entity: Union["Message", "Update"]) -> Optional[str]:
     return None
 
 
-def create_deep_linked_url(bot_username: str, payload: str = None, group: bool = False) -> str:
+def create_deep_linked_url(
+    bot_username: str, payload: Optional[str] = None, group: bool = False
+) -> str:
     """
     Creates a deep-linked URL for this :paramref:`~create_deep_linked_url.bot_username` with the
     specified :paramref:`~create_deep_linked_url.payload`. See
@@ -162,6 +171,12 @@ def create_deep_linked_url(bot_username: str, payload: str = None, group: bool =
 
     Returns:
         :obj:`str`: An URL to start the bot with specific parameters.
+
+    Raises:
+        :exc:`ValueError`: If the length of the :paramref:`payload` exceeds \
+        :tg-const:`telegram.constants.MessageLimit.DEEP_LINK_LENGTH` characters,
+            contains invalid characters, or if the :paramref:`bot_username` is less than 4
+            characters.
     """
     if bot_username is None or len(bot_username) <= 3:
         raise ValueError("You must provide a valid bot_username.")
@@ -170,8 +185,10 @@ def create_deep_linked_url(bot_username: str, payload: str = None, group: bool =
     if not payload:
         return base_url
 
-    if len(payload) > 64:
-        raise ValueError("The deep-linking payload must not exceed 64 characters.")
+    if len(payload) > MessageLimit.DEEP_LINK_LENGTH:
+        raise ValueError(
+            f"The deep-linking payload must not exceed {MessageLimit.DEEP_LINK_LENGTH} characters."
+        )
 
     if not re.match(r"^[A-Za-z0-9_-]+$", payload):
         raise ValueError(
@@ -179,9 +196,6 @@ def create_deep_linked_url(bot_username: str, payload: str = None, group: bool =
             "URLs: A-Z, a-z, 0-9, _ and -"
         )
 
-    if group:
-        key = "startgroup"
-    else:
-        key = "start"
+    key = "startgroup" if group else "start"
 
     return f"{base_url}?{key}={payload}"

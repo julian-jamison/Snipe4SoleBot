@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2022
+# Copyright (C) 2015-2025
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -82,21 +82,27 @@ class DefaultValue(Generic[DVType]):
 
     __slots__ = ("value",)
 
-    def __init__(self, value: DVType = None):
-        self.value = value
+    def __init__(self, value: DVType):
+        self.value: DVType = value
 
     def __bool__(self) -> bool:
         return bool(self.value)
 
-    @overload
-    @staticmethod
-    def get_value(obj: "DefaultValue[OT]") -> OT:
-        ...
+    # This is mostly here for readability during debugging
+    def __str__(self) -> str:
+        return f"DefaultValue({self.value})"
+
+    # This is here to have the default instances nicely rendered in the docs
+    def __repr__(self) -> str:
+        return repr(self.value)
 
     @overload
     @staticmethod
-    def get_value(obj: OT) -> OT:
-        ...
+    def get_value(obj: "DefaultValue[OT]") -> OT: ...
+
+    @overload
+    @staticmethod
+    def get_value(obj: OT) -> OT: ...
 
     @staticmethod
     def get_value(obj: Union[OT, "DefaultValue[OT]"]) -> OT:
@@ -110,28 +116,33 @@ class DefaultValue(Generic[DVType]):
         Returns:
             Same type as input, or the value of the input: The value
         """
-        return obj.value if isinstance(obj, DefaultValue) else obj  # type: ignore[return-value]
-
-    # This is mostly here for readability during debugging
-    def __str__(self) -> str:
-        return f"DefaultValue({self.value})"
-
-    # This is here to have the default instances nicely rendered in the docs
-    def __repr__(self) -> str:
-        return repr(self.value)
+        return obj.value if isinstance(obj, DefaultValue) else obj
 
 
-DEFAULT_NONE: DefaultValue = DefaultValue(None)
+DEFAULT_NONE: DefaultValue[None] = DefaultValue(None)
 """:class:`DefaultValue`: Default :obj:`None`"""
 
-DEFAULT_FALSE: DefaultValue = DefaultValue(False)
+DEFAULT_FALSE: DefaultValue[bool] = DefaultValue(False)
 """:class:`DefaultValue`: Default :obj:`False`"""
 
-DEFAULT_TRUE: DefaultValue = DefaultValue(True)
+DEFAULT_TRUE: DefaultValue[bool] = DefaultValue(True)
 """:class:`DefaultValue`: Default :obj:`True`
 
 .. versionadded:: 20.0
 """
 
-DEFAULT_20: DefaultValue = DefaultValue(20)
+
+DEFAULT_20: DefaultValue[int] = DefaultValue(20)
 """:class:`DefaultValue`: Default :obj:`20`"""
+
+DEFAULT_IP: DefaultValue[str] = DefaultValue("127.0.0.1")
+""":class:`DefaultValue`: Default :obj:`127.0.0.1`
+
+.. versionadded:: 20.8
+"""
+
+DEFAULT_80: DefaultValue[int] = DefaultValue(80)
+""":class:`DefaultValue`: Default :obj:`80`
+
+.. versionadded:: 20.8
+"""

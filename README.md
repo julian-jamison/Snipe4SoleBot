@@ -1,6 +1,6 @@
 # 🚀 AI Crypto Trading Bot
 
-# Snipe4SoleBot
+# Snipe4SolBot
 
 A high-performance automated trading bot for the Solana blockchain, designed to identify and capitalize on new liquidity pool opportunities.
 

@@ -1,99 +1,202 @@
 # 🚀 AI Crypto Trading Bot
 
-## 📌 **Project Overview**
-Snipe4SoleBot is an automated Solana token trading bot that interacts with the Solana blockchain, enabling users to execute trades based on dynamic risk management strategies. It fetches real-time market data, evaluates volatility, and automatically buys or sells tokens in an effort to maximize profit and minimize loss. The bot integrates with Telegram to send notifications about trade actions and status updates.
+# Snipe4SoleBot
 
-## 🎯 **Project Goals**
-Automated Trading: Automatically buys and sells tokens on the Solana blockchain based on pre-defined conditions and dynamic market analysis.
+A high-performance automated trading bot for the Solana blockchain, designed to identify and capitalize on new liquidity pool opportunities.
 
-Risk Management: Implements stop-loss, profit target, and dynamic risk management features to minimize losses and maximize profits.
+![Solana](https://img.shields.io/badge/Solana-362783?style=for-the-badge&logo=solana&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)
 
-Multi-wallet Support: Supports multiple Solana wallets for trading and fund management.
+## 🚀 Features
 
-Real-time Market Analysis: Fetches real-time token prices and assesses market volatility to guide trading decisions.
+- **Real-time Liquidity Pool Monitoring**: Detects new pools across major Solana DEXs (Raydium, Orca, Meteora)
+- **Automated Trading**: Configurable buy/sell strategies with dynamic parameters
+- **Telegram Integration**: Control and monitor trades directly from Telegram
+- **Multi-wallet Support**: Rotate between multiple wallets for trading
+- **Profit Management**: Automated profit taking and stop-loss execution
+- **Health Monitoring**: Self-healing capabilities with automatic restarts
+- **Whale Tracking**: Monitor large wallet movements to inform trading decisions
 
-Telegram Integration: Sends real-time trade updates and status notifications through Telegram for better user monitoring.
+## 📋 Prerequisites
 
-Error Logging & Backup: Logs trade activities and backs up trade logs to ensure the bot operates efficiently and transparently.
+- Python 3.8+
+- Solana wallet(s) with SOL
+- Helius API key
+- Telegram Bot token
 
-## ⚙️ **Project Features**
-Automated Token Trades: Executes buy and sell operations automatically based on market volatility and user-defined thresholds.
+## 🔧 Installation
 
-Dynamic Risk Management: Uses volatility thresholds to dynamically adjust trade sizes, stop-loss, and profit targets.
-
-Multi-Wallet Trading: Supports multiple Solana wallets, allowing diversified trading strategies.
-
-Auto-sell on Profit/Stop-Loss: Automatically triggers a sell operation when a token reaches a predefined profit target or stop-loss.
-
-Real-time Price Fetching: Fetches the latest prices from CoinGecko and other DEX APIs to ensure accurate trading decisions.
-
-Telegram Notifications: Sends notifications to a predefined Telegram chat about trade activities, status updates, and errors.
-
-Trade Logging: Logs each trade's details, including timestamps, action type, token address, quantity, price, profit/loss, and status.
-
-Log Backup and Restore: Backs up trade logs regularly to prevent data loss and ensures recovery in case of errors.
-
-## 💻 **Technology**
-Python: Main programming language for bot development.
-
-Solana Python SDK: Library for interacting with the Solana blockchain.
-
-Telegram API: For sending trade updates and messages to Telegram.
-
-Requests: For making HTTP requests to APIs like CoinGecko and Jupiter for price fetching.
-
-Asyncio and Aiohttp: For asynchronous operation and HTTP request handling.
-
-Git LFS: For handling large files within the repository.
-
-Logging: For error and trade logging purposes.
-
----
-
-## ✅ **Setup Instructions**
-
-### **1️⃣ Upload Project to Replit**
-1. Create a **new Python Repl** on [Replit](https://replit.com/).
-2. Upload all project files.
-
-### **2️⃣ Install Required Dependencies**
-Run the following command in the Replit **terminal**:
-```sh
-pip install pycryptodome python-telegram-bot requests
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/Snipe4SoleBot.git
+cd Snipe4SoleBot
 ```
 
-### **3️⃣ Encrypt Your Configuration**
-1. Run the encryption script to create `config.enc`:
-```sh
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Create your configuration:
+```bash
+cp config.example.json config.json
+# Edit config.json with your settings
+```
+
+5. Encrypt your configuration:
+```bash
+export CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
 python encrypt_config.py
 ```
-2. Delete the original `config.json` file to secure sensitive data:
-```sh
-rm config.json
+
+## ⚙️ Configuration
+
+Edit your `config.json` file with the following settings:
+
+```json
+{
+  "solana_wallets": {
+    "wallet_1": "YOUR_WALLET_ADDRESS_1",
+    "wallet_2": "YOUR_WALLET_ADDRESS_2",
+    "wallet_3": "YOUR_WALLET_ADDRESS_3",
+    "cold_wallet": "YOUR_COLD_STORAGE_WALLET",
+    "signer_private_key": "YOUR_SIGNER_PRIVATE_KEY",
+    "signer_public_key": "YOUR_SIGNER_PUBLIC_KEY"
+  },
+  "telegram": {
+    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+    "chat_id": "YOUR_TELEGRAM_CHAT_ID"
+  },
+  "trade_settings": {
+    "min_liquidity": 1000,
+    "max_gas_fee": 0.002,
+    "profit_target": 10,
+    "stop_loss": -5,
+    "trade_cooldown": 30,
+    "dynamic_risk_management": {
+      "enabled": true,
+      "volatility_threshold": 0.03,
+      "max_stop_loss": -10,
+      "min_stop_loss": -2,
+      "max_profit_target": 15,
+      "min_profit_target": 5
+    },
+    "allowed_tokens": [
+      "So11111111111111111111111111111111111111112",
+      "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"
+    ]
+  },
+  "api_keys": {
+    "live_mode": true,
+    "solana_rpc_url": "https://rpc.mainnet.helius.xyz/?api-key=YOUR_HELIUS_API_KEY"
+  }
+}
 ```
 
-### **4️⃣ Start the Trading Bot**
-Run the following command to start the bot:
-```sh
+## 🚀 Usage
+
+### Starting the Bot
+
+```bash
 python bot.py
 ```
 
----
+### Running as a Service
 
-## 🔒 **Security & Best Practices**
-- **NEVER share `config.enc` or `CONFIG_ENCRYPTION_KEY`.**
-- **Ensure `.gitignore` includes sensitive files** to prevent accidental exposure.
-- **Use a VPS (like DigitalOcean) for 24/7 uptime instead of running on Replit.**
+To run the bot continuously, create a systemd service:
 
----
+```bash
+sudo nano /etc/systemd/system/snipebot.service
+```
 
-## 🛠 **Available Features**
-✔ **AI-Based Trading Strategy** – Dynamic trade execution based on market conditions.  
-✔ **Whale Transaction Tracking** – Auto-buy/sell based on whale activity.  
-✔ **Gas Fee Optimization** – Avoids high transaction fees by delaying execution.  
-✔ **Automated Telegram Alerts** – Get real-time notifications for trades, profits, and system status.  
-✔ **Encrypted Configuration** – Protects wallet addresses and API keys.  
-✔ **Manual Commands via Telegram** – `/pause`, `/resume`, `/health`, `/strategy`.
+Add the following:
+
+```ini
+[Unit]
+Description=Snipe4SoleBot Solana Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/path/to/Snipe4SoleBot
+Environment="PATH=/path/to/Snipe4SoleBot/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="CONFIG_ENCRYPTION_KEY=your_encryption_key_here"
+ExecStart=/path/to/Snipe4SoleBot/venv/bin/python /path/to/Snipe4SoleBot/bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable snipebot
+sudo systemctl start snipebot
+```
+
+### Telegram Commands
+
+- `/start` - Start the bot
+- `/stop` - Stop the bot
+- `/restart` - Restart the bot
+- `/status` - View bot status
+- `/wallets` - View wallet information
+- `/pause` - Pause trading
+- `/resume` - Resume trading
+- `/debug` - View debug information
+
+## 📊 Monitoring
+
+Check the bot's logs:
+
+```bash
+tail -f bot_debug.log
+```
+
+With systemd:
+
+```bash
+sudo journalctl -u snipebot -f
+```
+
+## 🛡️ Security Best Practices
+
+1. Use a dedicated server or VPS
+2. Never share your private keys or config
+3. Use a cold wallet for storing profits
+4. Regularly rotate API keys
+5. Enable 2FA on all related accounts
+6. Only fund trading wallets with amounts you're willing to risk
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## ⚠️ Disclaimer
+
+This bot is provided for educational and research purposes only. Trading cryptocurrencies involves significant risk. Use at your own risk. The developers are not responsible for any financial losses incurred while using this software.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 

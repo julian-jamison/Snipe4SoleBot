@@ -1,53 +1,65 @@
-🚀 Enhanced Solana Trading Bot
+# 🚀 Enhanced Solana Trading Bot
+
 A multi-strategy trading system for the Solana blockchain, featuring enhanced pool detection, cross-DEX arbitrage, market making, and trend following.
-Show Image
-Show Image
-Show Image
-🚀 Features
 
-Enhanced Pool Detection: Lower liquidity threshold and 24-hour pool monitoring
-Cross-DEX Arbitrage: Profit from price differences across Raydium, Orca, and Meteora
-Market Making: Passive income from providing liquidity with wide spreads
-Trend Following: Technical analysis for established tokens with trailing stops
-Telegram Integration: Full control and monitoring via Telegram notifications
-Multi-wallet Support: Trade using multiple wallets for risk diversification
-Risk Management: Dynamic position sizing and automated stop-losses
+![Solana](https://img.shields.io/badge/Solana-362783?style=for-the-badge&logo=solana&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)
 
-📋 Prerequisites
+## 🚀 Features
 
-Python 3.7+
-Solana wallet(s) with SOL
-Helius API key
-Telegram Bot token
+- **Enhanced Pool Detection**: Lower liquidity threshold and 24-hour pool monitoring
+- **Cross-DEX Arbitrage**: Profit from price differences across Raydium, Orca, and Meteora
+- **Market Making**: Passive income from providing liquidity with wide spreads
+- **Trend Following**: Technical analysis for established tokens with trailing stops
+- **Telegram Integration**: Full control and monitoring via Telegram notifications
+- **Multi-wallet Support**: Trade using multiple wallets for risk diversification
+- **Risk Management**: Dynamic position sizing and automated stop-losses
 
-🔧 Installation
+## 📋 Prerequisites
 
-Clone the repository:
+- Python 3.7+
+- Solana wallet(s) with SOL
+- Helius API key
+- Telegram Bot token
 
-bashgit clone https://github.com/yourusername/enhanced-solana-bot.git
+## 🔧 Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/enhanced-solana-bot.git
 cd enhanced-solana-bot
+```
 
-Create and activate a virtual environment:
-
-bashpython -m venv venv
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-Install dependencies:
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-bashpip install -r requirements.txt
-
-Create your configuration:
-
-bashcp config.example.json config.json
+4. Create your configuration:
+```bash
+cp config.example.json config.json
 # Edit config.json with your settings
+```
 
-Encrypt your configuration:
-
-bashexport CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
+5. Encrypt your configuration:
+```bash
+export CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
 python encrypt_config.py
-⚙️ Configuration
-Edit your config.json file with the following settings:
-json{
+```
+
+## ⚙️ Configuration
+
+Edit your `config.json` file with the following settings:
+
+```json
+{
   "solana_wallets": {
     "wallet_1": "YOUR_WALLET_ADDRESS_1",
     "wallet_2": "YOUR_WALLET_ADDRESS_2",
@@ -106,14 +118,28 @@ json{
     "solana_rpc_url": "https://rpc.mainnet.helius.xyz/?api-key=YOUR_HELIUS_API_KEY"
   }
 }
-🚀 Usage
-Starting the Bot
-bashpython bot.py
-Running as a Service
+```
+
+## 🚀 Usage
+
+### Starting the Bot
+
+```bash
+python bot.py
+```
+
+### Running as a Service
+
 To run the bot continuously, create a systemd service:
-bashsudo nano /etc/systemd/system/enhanced-solana-bot.service
+
+```bash
+sudo nano /etc/systemd/system/enhanced-solana-bot.service
+```
+
 Add the following:
-ini[Unit]
+
+```ini
+[Unit]
 Description=Enhanced Solana Trading Bot
 After=network.target
 
@@ -130,110 +156,132 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+```
+
 Enable and start the service:
-bashsudo systemctl daemon-reload
+
+```bash
+sudo systemctl daemon-reload
 sudo systemctl enable enhanced-solana-bot
 sudo systemctl start enhanced-solana-bot
-Telegram Commands
+```
 
-/start - Start all trading strategies
-/stop - Stop all trading strategies
-/status - View bot status and active positions
-/strategy <name> <on/off> - Enable/disable specific strategy
-/wallets - View wallet information
-/health - View performance metrics and uptime
+### Telegram Commands
 
-📊 Strategy Overview
-1. 🎯 Sniper Strategy (Enhanced)
+- `/start` - Start all trading strategies
+- `/stop` - Stop all trading strategies
+- `/status` - View bot status and active positions
+- `/strategy <name> <on/off>` - Enable/disable specific strategy
+- `/wallets` - View wallet information
+- `/health` - View performance metrics and uptime
 
-Targets new and recently created liquidity pools (last 24 hours)
-Lower minimum liquidity threshold (500 SOL instead of 1000)
-Automatic profit-taking and stop-loss management
+## 📊 Strategy Overview
 
-2. 💱 Cross-DEX Arbitrage
+### 1. 🎯 Sniper Strategy (Enhanced)
+- Targets new and recently created liquidity pools (last 24 hours)
+- Lower minimum liquidity threshold (500 SOL instead of 1000)
+- Automatic profit-taking and stop-loss management
 
-Monitors major tokens (SOL, USDC, USDT) across DEXes
-Executes trades to profit from price discrepancies
-Configurable minimum price difference threshold
+### 2. 💱 Cross-DEX Arbitrage
+- Monitors major tokens (SOL, USDC, USDT) across DEXes
+- Executes trades to profit from price discrepancies
+- Configurable minimum price difference threshold
 
-3. 📈 Market Making
+### 3. 📈 Market Making
+- Identifies pools with wider spreads for better profit margins
+- Places orders on both sides of the market
+- Automatically refreshes orders at configurable intervals
 
-Identifies pools with wider spreads for better profit margins
-Places orders on both sides of the market
-Automatically refreshes orders at configurable intervals
+### 4. 📉 Trend Following
+- Technical analysis for established tokens
+- Uses SMA7, SMA25, and RSI for entry/exit signals
+- Trailing stop-loss for maximizing profits
 
-4. 📉 Trend Following
+## 🛡️ Security Best Practices
 
-Technical analysis for established tokens
-Uses SMA7, SMA25, and RSI for entry/exit signals
-Trailing stop-loss for maximizing profits
+1. Use a dedicated server or VPS
+2. Never share your private keys or config
+3. Use a cold wallet for storing profits
+4. Regularly rotate API keys
+5. Enable 2FA on all related accounts
+6. Only fund trading wallets with amounts you're willing to risk
 
-🛡️ Security Best Practices
+## ⚡ Commands & Usage
 
-Use a dedicated server or VPS
-Never share your private keys or config
-Use a cold wallet for storing profits
-Regularly rotate API keys
-Enable 2FA on all related accounts
-Only fund trading wallets with amounts you're willing to risk
+| Command | Description |
+|---------|-------------|
+| `/health` | Shows bot uptime, active strategies, and profit summary |
+| `/strategy sniper on` | Enables the sniper strategy |
+| `/strategy arbitrage on` | Enables the arbitrage strategy |
+| `/strategy market_making on` | Enables the market making strategy |
+| `/strategy trend_following on` | Enables the trend following strategy |
+| `/pause all` | Pauses all trading strategies |
+| `/resume all` | Resumes all trading strategies |
 
-⚡ Commands & Usage
-CommandDescription/healthShows bot uptime, active strategies, and profit summary/strategy sniper onEnables the sniper strategy/strategy arbitrage onEnables the arbitrage strategy/strategy market_making onEnables the market making strategy/strategy trend_following onEnables the trend following strategy/pause allPauses all trading strategies/resume allResumes all trading strategies
-🚀 Deploying to DigitalOcean (Step-by-Step)
-1️⃣ Create a DigitalOcean Droplet
+## 🚀 Deploying to DigitalOcean (Step-by-Step)
 
-Sign up at DigitalOcean.
-Click "Create" → Select "Droplets".
-Choose Ubuntu 22.04 (Recommended) as the OS.
-Select the Basic plan ($7/month or higher recommended).
-Under Authentication, choose SSH Key (recommended) or Password.
-Click "Create Droplet" and wait for deployment.
+### **1️⃣ Create a DigitalOcean Droplet**
+1. Sign up at [DigitalOcean](https://www.digitalocean.com/).
+2. Click **"Create"** → Select **"Droplets"**.
+3. Choose **Ubuntu 22.04 (Recommended)** as the OS.
+4. Select the **Basic plan ($7/month or higher recommended)**.
+5. Under **Authentication**, choose **SSH Key** (recommended) or **Password**.
+6. Click **"Create Droplet"** and wait for deployment.
 
-2️⃣ Connect to Your DigitalOcean Server
+### **2️⃣ Connect to Your DigitalOcean Server**
+1. Open a terminal on your local machine.
+2. Run the following command to connect (replace with your droplet's IP):
+```sh
+ssh root@your-droplet-ip
+```
 
-Open a terminal on your local machine.
-Run the following command to connect (replace with your droplet's IP):
-
-shssh root@your-droplet-ip
-3️⃣ Install Required Dependencies
+### **3️⃣ Install Required Dependencies**
 Run the following commands to set up the environment:
-shsudo apt update && sudo apt upgrade -y
+```sh
+sudo apt update && sudo apt upgrade -y
 sudo apt install python3-pip python3-venv git -y
-4️⃣ Clone the Repository and Set Up
+```
 
-Clone the repository:
-
-shgit clone https://github.com/yourusername/enhanced-solana-bot.git
+### **4️⃣ Clone the Repository and Set Up**
+1. Clone the repository:
+```sh
+git clone https://github.com/yourusername/enhanced-solana-bot.git
 cd enhanced-solana-bot
+```
 
-Create a virtual environment:
-
-shpython3 -m venv venv
+2. Create a virtual environment:
+```sh
+python3 -m venv venv
 source venv/bin/activate
+```
 
-Install dependencies:
+3. Install dependencies:
+```sh
+pip install -r requirements.txt
+```
 
-shpip install -r requirements.txt
-
-Configure your settings:
-
-shcp config.example.json config.json
+4. Configure your settings:
+```sh
+cp config.example.json config.json
 nano config.json
 # Edit with your settings
+```
 
-Encrypt your configuration:
-
-shexport CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
+5. Encrypt your configuration:
+```sh
+export CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
 python encrypt_config.py
-5️⃣ Set Up as a Service
+```
 
-Create a systemd service file:
+### **5️⃣ Set Up as a Service**
+1. Create a systemd service file:
+```sh
+sudo nano /etc/systemd/system/enhanced-solana-bot.service
+```
 
-shsudo nano /etc/systemd/system/enhanced-solana-bot.service
-
-Add the following content (adjust paths):
-
-ini[Unit]
+2. Add the following content (adjust paths):
+```ini
+[Unit]
 Description=Enhanced Solana Trading Bot
 After=network.target
 
@@ -250,33 +298,42 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+```
 
-Enable and start the service:
-
-shsudo systemctl daemon-reload
+3. Enable and start the service:
+```sh
+sudo systemctl daemon-reload
 sudo systemctl enable enhanced-solana-bot
 sudo systemctl start enhanced-solana-bot
+```
 
-Check if the bot is running:
+4. Check if the bot is running:
+```sh
+sudo systemctl status enhanced-solana-bot
+```
 
-shsudo systemctl status enhanced-solana-bot
-📝 License
+## 📝 License
+
 This project is licensed under the MIT License - see the LICENSE file for details.
-⚠️ Disclaimer
+
+## ⚠️ Disclaimer
+
 This bot is provided for educational and research purposes only. Trading cryptocurrencies involves significant risk. Use at your own risk. The developers are not responsible for any financial losses incurred while using this software.
-🚀 Next Steps
 
- Deploy the bot to a VPS for 24/7 automated trading
- Add machine learning for pattern recognition and improved entries
- Implement portfolio rebalancing for token diversification
- Create a web dashboard for real-time monitoring
+## 🚀 Next Steps
+- [ ] Deploy the bot to a VPS for **24/7 automated trading**
+- [ ] Add machine learning for pattern recognition and improved entries
+- [ ] Implement portfolio rebalancing for token diversification
+- [ ] Create a web dashboard for real-time monitoring
 
+---
 
-🤝 Support & Contributions
+## 🤝 Support & Contributions
+
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-Fork the repository
-Create your feature branch (git checkout -b feature/amazing-feature)
-Commit your changes (git commit -m 'Add some amazing feature')
-Push to the branch (git push origin feature/amazing-feature)
-Open a Pull Request
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request

@@ -1,143 +1,282 @@
 🚀 Enhanced Solana Trading Bot
-This trading bot has been upgraded with multiple trading strategies for the Solana blockchain. It now supports four distinct trading strategies that can be used individually or in combination.
+A multi-strategy trading system for the Solana blockchain, featuring enhanced pool detection, cross-DEX arbitrage, market making, and trend following.
+Show Image
+Show Image
+Show Image
+🚀 Features
+
+Enhanced Pool Detection: Lower liquidity threshold and 24-hour pool monitoring
+Cross-DEX Arbitrage: Profit from price differences across Raydium, Orca, and Meteora
+Market Making: Passive income from providing liquidity with wide spreads
+Trend Following: Technical analysis for established tokens with trailing stops
+Telegram Integration: Full control and monitoring via Telegram notifications
+Multi-wallet Support: Trade using multiple wallets for risk diversification
+Risk Management: Dynamic position sizing and automated stop-losses
+
+📋 Prerequisites
+
+Python 3.7+
+Solana wallet(s) with SOL
+Helius API key
+Telegram Bot token
+
+🔧 Installation
+
+Clone the repository:
+
+bashgit clone https://github.com/yourusername/enhanced-solana-bot.git
+cd enhanced-solana-bot
+
+Create and activate a virtual environment:
+
+bashpython -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+Install dependencies:
+
+bashpip install -r requirements.txt
+
+Create your configuration:
+
+bashcp config.example.json config.json
+# Edit config.json with your settings
+
+Encrypt your configuration:
+
+bashexport CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
+python encrypt_config.py
+⚙️ Configuration
+Edit your config.json file with the following settings:
+json{
+  "solana_wallets": {
+    "wallet_1": "YOUR_WALLET_ADDRESS_1",
+    "wallet_2": "YOUR_WALLET_ADDRESS_2",
+    "wallet_3": "YOUR_WALLET_ADDRESS_3",
+    "cold_wallet": "YOUR_COLD_STORAGE_WALLET",
+    "signer_private_key": "YOUR_SIGNER_PRIVATE_KEY",
+    "signer_public_key": "YOUR_SIGNER_PUBLIC_KEY"
+  },
+  "telegram": {
+    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+    "chat_id": "YOUR_TELEGRAM_CHAT_ID"
+  },
+  "trade_settings": {
+    "min_liquidity": 500,
+    "max_gas_fee": 0.002,
+    "profit_target": 10,
+    "stop_loss": -5,
+    "trade_cooldown": 30,
+    "dynamic_risk_management": {
+      "enabled": true,
+      "volatility_threshold": 0.03,
+      "max_stop_loss": -10,
+      "min_stop_loss": -2,
+      "max_profit_target": 15,
+      "min_profit_target": 5
+    },
+    "allowed_tokens": [
+      "So11111111111111111111111111111111111111112",
+      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"
+    ]
+  },
+  "strategy_settings": {
+    "sniper": {
+      "enabled": true,
+      "max_concurrent_positions": 3
+    },
+    "arbitrage": {
+      "enabled": true,
+      "min_price_difference_percent": 1.0
+    },
+    "market_making": {
+      "enabled": true,
+      "min_spread_percent": 1.0
+    },
+    "trend_following": {
+      "enabled": true,
+      "tokens_to_monitor": [
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"
+      ]
+    }
+  },
+  "api_keys": {
+    "live_mode": true,
+    "solana_rpc_url": "https://rpc.mainnet.helius.xyz/?api-key=YOUR_HELIUS_API_KEY"
+  }
+}
+🚀 Usage
+Starting the Bot
+bashpython bot.py
+Running as a Service
+To run the bot continuously, create a systemd service:
+bashsudo nano /etc/systemd/system/enhanced-solana-bot.service
+Add the following:
+ini[Unit]
+Description=Enhanced Solana Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/path/to/enhanced-solana-bot
+Environment="PATH=/path/to/enhanced-solana-bot/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="CONFIG_ENCRYPTION_KEY=your_encryption_key_here"
+ExecStart=/path/to/enhanced-solana-bot/venv/bin/python /path/to/enhanced-solana-bot/bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+Enable and start the service:
+bashsudo systemctl daemon-reload
+sudo systemctl enable enhanced-solana-bot
+sudo systemctl start enhanced-solana-bot
+Telegram Commands
+
+/start - Start all trading strategies
+/stop - Stop all trading strategies
+/status - View bot status and active positions
+/strategy <name> <on/off> - Enable/disable specific strategy
+/wallets - View wallet information
+/health - View performance metrics and uptime
+
 📊 Strategy Overview
 1. 🎯 Sniper Strategy (Enhanced)
-The original pool-sniping strategy has been improved with:
 
+Targets new and recently created liquidity pools (last 24 hours)
 Lower minimum liquidity threshold (500 SOL instead of 1000)
-Support for recently created pools (within the last 24 hours), not just brand new ones
 Automatic profit-taking and stop-loss management
 
 2. 💱 Cross-DEX Arbitrage
-A new arbitrage strategy that:
 
-Monitors for price differences of major tokens (SOL, USDC, USDT) across different DEXes
-Automatically executes trades to profit from price discrepancies
-Focuses on DEX programs including Raydium, Orca, and Meteora
+Monitors major tokens (SOL, USDC, USDT) across DEXes
+Executes trades to profit from price discrepancies
+Configurable minimum price difference threshold
 
 3. 📈 Market Making
-A market making strategy that:
 
-Identifies pools with wider spreads
-Implements passive market making by placing orders on both sides
+Identifies pools with wider spreads for better profit margins
+Places orders on both sides of the market
 Automatically refreshes orders at configurable intervals
 
 4. 📉 Trend Following
-A technical analysis-based strategy that:
 
-Implements trend following for more established tokens
-Uses moving averages and RSI for entry/exit points
-Features trailing stop-loss for risk management
+Technical analysis for established tokens
+Uses SMA7, SMA25, and RSI for entry/exit signals
+Trailing stop-loss for maximizing profits
 
-⚙️ Configuration
-All strategies can be configured in the STRATEGY_CONFIG dictionary in monitor_and_trade.py:
-pythonSTRATEGY_CONFIG = {
-    "sniper": {
-        "enabled": True,
-        "max_concurrent_positions": 3,
-        "profit_target_percent": 10,
-        "stop_loss_percent": -5,
-        "check_interval_seconds": 2
-    },
-    "arbitrage": {
-        "enabled": True,
-        "min_price_difference_percent": 1.0,
-        "max_concurrent_trades": 2,
-        "check_interval_seconds": 30,
-        "tokens_to_monitor": [SOLANA_NATIVE_MINT, USDC_MINT, USDT_MINT]
-    },
-    "market_making": {
-        "enabled": True,
-        "min_spread_percent": 1.0,
-        "max_concurrent_pools": 2,
-        "order_refresh_seconds": 60,
-        "check_interval_seconds": 300
-    },
-    "trend_following": {
-        "enabled": True,
-        "timeframes": ["4h"],
-        "max_concurrent_positions": 3,
-        "position_size_percent": 10,  # Percent of available capital
-        "check_interval_seconds": 3600,  # 1 hour
-        "tokens_to_monitor": []  # Will be populated from config
-    }
-}
-🖥️ Usage
-Running All Strategies
-To run all strategies simultaneously:
-pythonfrom monitor_and_trade import start_all_strategies, stop_all_strategies
+🛡️ Security Best Practices
 
-# Start all enabled strategies
-strategy_threads = start_all_strategies()
+Use a dedicated server or VPS
+Never share your private keys or config
+Use a cold wallet for storing profits
+Regularly rotate API keys
+Enable 2FA on all related accounts
+Only fund trading wallets with amounts you're willing to risk
 
-# To stop all strategies
-stop_all_strategies()
-Running Individual Strategies
-You can also run strategies individually by setting only the desired strategy to enabled:
-python# In monitor_and_trade.py
-STRATEGY_CONFIG = {
-    "sniper": {"enabled": True, ...},
-    "arbitrage": {"enabled": False, ...},
-    "market_making": {"enabled": False, ...},
-    "trend_following": {"enabled": False, ...}
-}
+⚡ Commands & Usage
+CommandDescription/healthShows bot uptime, active strategies, and profit summary/strategy sniper onEnables the sniper strategy/strategy arbitrage onEnables the arbitrage strategy/strategy market_making onEnables the market making strategy/strategy trend_following onEnables the trend following strategy/pause allPauses all trading strategies/resume allResumes all trading strategies
+🚀 Deploying to DigitalOcean (Step-by-Step)
+1️⃣ Create a DigitalOcean Droplet
 
-# Then run
-from monitor_and_trade import start_all_strategies
-start_all_strategies()
-Backward Compatibility
-For backward compatibility with the original bot, you can use:
-pythonfrom monitor_and_trade import start_sniper_thread
-sniper_thread = start_sniper_thread()
-📋 Requirements
-The bot requires the following dependencies:
+Sign up at DigitalOcean.
+Click "Create" → Select "Droplets".
+Choose Ubuntu 22.04 (Recommended) as the OS.
+Select the Basic plan ($7/month or higher recommended).
+Under Authentication, choose SSH Key (recommended) or Password.
+Click "Create Droplet" and wait for deployment.
 
-Python 3.7+
-aiohttp
-solana.py
-python-telegram-bot
+2️⃣ Connect to Your DigitalOcean Server
 
-🔧 Configuration
+Open a terminal on your local machine.
+Run the following command to connect (replace with your droplet's IP):
 
-Update your config.json with appropriate settings
-For trend following, add tokens in the "trend_following_tokens" section of your config
+shssh root@your-droplet-ip
+3️⃣ Install Required Dependencies
+Run the following commands to set up the environment:
+shsudo apt update && sudo apt upgrade -y
+sudo apt install python3-pip python3-venv git -y
+4️⃣ Clone the Repository and Set Up
 
-💬 Telegram Notifications
-All strategies send notifications to Telegram about:
+Clone the repository:
 
-New trading opportunities detected
-Trade entries and exits
-Profit/loss information
-Strategy status updates
+shgit clone https://github.com/yourusername/enhanced-solana-bot.git
+cd enhanced-solana-bot
 
-⚠️ Caution
-Trading cryptocurrencies involves significant risk. This bot is for educational purposes and should be thoroughly tested before using with real funds. Always:
+Create a virtual environment:
 
-Start with small amounts
-Test thoroughly in a development environment
-Monitor the bot's activities regularly
-Be prepared for potential losses
+shpython3 -m venv venv
+source venv/bin/activate
 
-🔍 Expanded Pool Criteria
-The mempool monitor now uses the following expanded criteria:
+Install dependencies:
 
-Minimum pool liquidity: 500 SOL (lowered from 1000)
-Considers pools created within the last 24 hours
-Improved filtering for scam/honeypot tokens
+shpip install -r requirements.txt
 
-📊 Technical Indicators
-For trend following, the bot uses:
+Configure your settings:
 
-Simple Moving Averages (7 and 25 period)
-Relative Strength Index (14 period)
-Bullish criteria: SMA7 > SMA25 and RSI > 50
-Bearish criteria: SMA7 < SMA25 and RSI < 50
+shcp config.example.json config.json
+nano config.json
+# Edit with your settings
 
-📁 Folder Structure
+Encrypt your configuration:
 
-mempool_monitor.py: Enhanced pool monitoring with expanded criteria
-trade_execution.py: Trade execution logic for all strategies
-monitor_and_trade.py: Main monitoring loops for all strategies
-utils.py: Utility functions used across the bot
-telegram_notifications.py: Telegram notification functionality
-config_manager.py: Configuration loading and management
+shexport CONFIG_ENCRYPTION_KEY="your_encryption_key_here"
+python encrypt_config.py
+5️⃣ Set Up as a Service
+
+Create a systemd service file:
+
+shsudo nano /etc/systemd/system/enhanced-solana-bot.service
+
+Add the following content (adjust paths):
+
+ini[Unit]
+Description=Enhanced Solana Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/enhanced-solana-bot
+Environment="PATH=/root/enhanced-solana-bot/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="CONFIG_ENCRYPTION_KEY=your_encryption_key_here"
+ExecStart=/root/enhanced-solana-bot/venv/bin/python /root/enhanced-solana-bot/bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+Enable and start the service:
+
+shsudo systemctl daemon-reload
+sudo systemctl enable enhanced-solana-bot
+sudo systemctl start enhanced-solana-bot
+
+Check if the bot is running:
+
+shsudo systemctl status enhanced-solana-bot
+📝 License
+This project is licensed under the MIT License - see the LICENSE file for details.
+⚠️ Disclaimer
+This bot is provided for educational and research purposes only. Trading cryptocurrencies involves significant risk. Use at your own risk. The developers are not responsible for any financial losses incurred while using this software.
+🚀 Next Steps
+
+ Deploy the bot to a VPS for 24/7 automated trading
+ Add machine learning for pattern recognition and improved entries
+ Implement portfolio rebalancing for token diversification
+ Create a web dashboard for real-time monitoring
+
+
+🤝 Support & Contributions
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+Fork the repository
+Create your feature branch (git checkout -b feature/amazing-feature)
+Commit your changes (git commit -m 'Add some amazing feature')
+Push to the branch (git push origin feature/amazing-feature)
+Open a Pull Request

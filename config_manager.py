@@ -53,3 +53,7 @@ def reload_config():
     # This would need to be implemented if you want to reload
     # the config during runtime
     pass
+
+# Aliases for backward compatibility
+get_config_setting = get_config_value
+save_config_setting = update_config_value

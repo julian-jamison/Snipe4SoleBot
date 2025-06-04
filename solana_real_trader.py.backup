@@ -1,0 +1,535 @@
+import time, json, base64, logging, asyncio, threading, requests, base58
+from datetime import datetime
+
+# ── Import Solana SDK (with graceful fall-backs) ──────────────────────────
+MOCK_MODE = False
+try:
+    # Try the solders imports first since we know they're available
+    from solders.pubkey import Pubkey as PublicKey
+    from solders.keypair import Keypair
+    from solana.rpc.api import Client
+    from solana.rpc.types import TxOpts
+    from solana.transaction import Transaction
+    from solders.system_program import ID as SYS_PROGRAM_ID
+    
+    # Use string for commitment since we're not sure about the structure
+    COMMITMENT_CONFIRMED = "confirmed"
+    logging.info("Using solders-based imports")
+except ImportError as e:
+    # Fallback to classic solana imports
+    try:
+        from solana.rpc.api import Client
+        from solana.rpc.types import TxOpts
+        try:
+            from solana.rpc.commitment import Commitment
+            COMMITMENT_CONFIRMED = Commitment.confirmed
+        except (ImportError, AttributeError):
+            from solana.rpc.commitment import Confirmed
+            COMMITMENT_CONFIRMED = Confirmed
+        from solana.transaction import Transaction
+        from solana.keypair import Keypair
+        from solana.publickey import PublicKey
+        from solana.system_program import SYS_PROGRAM_ID
+        logging.info("Using classic solana imports")
+    except ImportError:
+        MOCK_MODE = True
+        logging.warning("Solana SDK missing – MOCK MODE enabled")
+        
+        class PublicKey:
+            def __init__(self, a): self.addr = str(a)
+            def __str__(self): return self.addr
+        class Keypair:
+            @classmethod
+            def from_secret_key(cls, *_): return cls()
+            def __init__(self): self.public_key = PublicKey("MOCK_PUB")
+        SYS_PROGRAM_ID = PublicKey("11111111111111111111111111111111")
+        COMMITMENT_CONFIRMED = "confirmed"
+        class Client:
+            def __init__(self, *a, **k): ...
+            def get_version(self): return {"result": {"solana-core": "mock"}}
+            def get_balance(self, _): return {"result": {"value": 5_000_000_000}}
+            def get_token_accounts_by_owner(self, *_): return {"result": {"value": []}}
+            def get_token_account_balance(self, *_):
+                return {"result": {"value": {"amount": "100000000", "decimals": 6, "uiAmount": 100}}}
+            def confirm_transaction(self, _): return {"result": {"value": True}}
+            def send_transaction(self, *_): return {"result": "MOCK_SIG"}
+
+# ── Local modules (mock if missing) ──────────────────────────────────────
+try:
+    from telegram_notifications import send_telegram_message
+    from decrypt_config import config
+except ImportError:
+    logging.warning("Local modules missing – using mock config + Telegram")
+    def send_telegram_message(msg): print(f"MOCK TELEGRAM: {msg}")
+    config = {
+        "api_keys": {
+            "birdeye_api_key": "your-key",
+            "solana_rpc_url": "https://api.mainnet-beta.solana.com",
+            "live_mode": False,
+        },
+        "solana_wallets": {
+            "wallet_1": "MOCK_W1",
+            "wallet_2": "MOCK_W2",
+            "wallet_3": "MOCK_W3",
+            "cold_wallet": "MOCK_COLD",
+        },
+        "trade_settings": {
+            "min_liquidity": 1_000,
+            "profit_target": 10,
+            "stop_loss": -5,
+            "slippage_bps": 100,
+        },
+    }
+
+# ── Logging / constants ─────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("sol_real_trader")
+
+JUPITER_AGGREGATOR_PROGRAM_ID = "JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB"
+RAYDIUM_AMM_PROGRAM_ID      = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+ORCA_SWAP_PROGRAM_ID        = "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP"
+
+try:
+    from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID
+    ATA_PROGRAM_ID = ASSOCIATED_TOKEN_PROGRAM_ID
+except ImportError:
+    ATA_PROGRAM_ID = PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+class MockSolanaClient:
+    def get_version(self): return {"result": {"solana-core": "mock"}}
+    def get_balance(self, _): return {"result": {"value": 5_000_000_000}}
+    def get_token_accounts_by_owner(self, *_): return {"result": {"value": []}}
+    def get_token_account_balance(self, *_):
+        return {"result": {"value": {"amount": "100000000", "decimals": 6, "uiAmount": 100}}}
+    def confirm_transaction(self, _): return {"result": {"value": True}}
+    def send_transaction(self, *_): return {"result": "MOCK_SIG"}
+
+# ════════════════════════════════════════════════════════════════════════
+class SolanaRealTrader:
+    def __init__(self):
+        self.load_config()
+        self.setup_connections()
+        self.processed_pools:set[str]=set()
+        self.active_trades:set[str]=set()
+        self.running=True
+
+    # ---- configuration --------------------------------------------------
+    def load_config(self):
+        self.config=config
+        self.rpc_url=self.config["api_keys"].get("solana_rpc_url")
+        self.wallets=self.config["solana_wallets"]
+        self.cold_wallet=self.wallets.get("cold_wallet")
+        t=self.config["trade_settings"]
+        self.min_liquidity=float(t.get("min_liquidity",1000))
+        self.profit_target=float(t.get("profit_target",10))
+        self.stop_loss=float(t.get("stop_loss",-5))
+        self.slippage_bps=int(t.get("slippage_bps",100))
+        pk=self._parse_any_private_key(
+            next((self.wallets.get(f) for f in
+                 ("private_key_hex","signer_private_key","private_key") if self.wallets.get(f)),None)
+        )
+        self.keypair=pk
+
+    def _parse_any_private_key(self, key):
+        if not key:
+            logger.warning("No private key – using random")
+            return Keypair()
+        
+        # Improved private key parsing
+        try:
+            # Clean the key (remove any non-alphanumeric chars)
+            k = "".join(c for c in key if c.isalnum())
+            
+            # Try as hex string (your key format)
+            if len(k) >= 64:
+                logger.info(f"Attempting to parse hex private key of length {len(k)}")
+                hex_bytes = bytes.fromhex(k[:64])
+                logger.info("Successfully parsed hex private key")
+                return Keypair.from_secret_key(hex_bytes)
+        except Exception as e:
+            logger.error(f"Error parsing hex key: {str(e)}")
+        
+        try:
+            # Try as base58
+            logger.info("Attempting to parse base58 private key")
+            b = base58.b58decode(key)
+            if len(b) < 32:
+                b = b"\x00" * (32 - len(b)) + b
+            logger.info("Successfully parsed base58 private key")
+            return Keypair.from_secret_key(b)
+        except Exception as e:
+            logger.error(f"Error parsing base58 key: {str(e)}")
+        
+        logger.warning("All private key parsing methods failed – using random keypair")
+        return Keypair()
+
+    # ---- connections ----------------------------------------------------
+    def setup_connections(self):
+        if MOCK_MODE:
+            self.client = MockSolanaClient()
+            logger.info("Mock client (MOCK_MODE enabled)")
+            return
+        
+        if not self.rpc_url:
+            self.rpc_url = "https://api.mainnet-beta.solana.com"
+            logger.info("Using default RPC URL")
+        
+        # Improved connection handling
+        logger.info(f"Connecting to RPC: {self.rpc_url}")
+        
+        try:
+            # Try without explicit commitment
+            self.client = Client(self.rpc_url)
+            v = self.client.get_version()["result"]["solana-core"]
+            logger.info(f"Connected to Solana RPC – node v{v}")
+            return
+        except Exception as e:
+            logger.warning(f"Initial RPC connection failed: {str(e)} – trying alternatives")
+        
+        try:
+            # Try with explicit commitment
+            self.client = Client(self.rpc_url, commitment=COMMITMENT_CONFIRMED)
+            v = self.client.get_version()["result"]["solana-core"]
+            logger.info(f"Connected with explicit commitment – node v{v}")
+            return
+        except Exception as e:
+            logger.warning(f"Commitment-based connection failed: {str(e)} – trying final method")
+        
+        try:
+            # Final attempt with different parameters
+            from solana.rpc.api import Client as AlternativeClient
+            self.client = AlternativeClient(self.rpc_url)
+            v = self.client.get_version()["result"]["solana-core"]
+            logger.info(f"Connected with alternative client – node v{v}")
+            return
+        except Exception as e:
+            logger.error(f"All RPC connection attempts failed: {str(e)} – using mock client")
+            self.client = MockSolanaClient()
+
+    # ---- helpers --------------------------------------------------------
+    def _get_birdeye_api_key(self):
+        api = self.config["api_keys"]
+        demo = "cc8ff825-27de-4804-9f6e-5bbb5a40fc3a"
+        
+        for k in ("birdeye_api_key", "birdeye-api-key", "birdeyeApiKey", "BIRDEYE_API_KEY"):
+            if api.get(k):
+                key = api[k]
+                logger.info(f"Using BirdEye API key: {key[:5]}...{key[-4:] if len(key) > 8 else ''}")
+                return key
+        
+        logger.warning("No BirdEye API key found, using demo key")
+        return demo
+
+    def get_wallet_balance(self, addr, mint=None):
+        try:
+            pk = PublicKey(addr)
+            if not mint:
+                logger.info(f"Getting SOL balance for {addr[:6]}...")
+                lam = self.client.get_balance(pk)["result"]["value"]
+                balance = lam/1e9
+                logger.info(f"Balance: {balance} SOL")
+                return balance
+            
+            logger.warning("Token balance lookup not implemented - returning mock value")
+            return 10.0
+        except Exception as e:
+            logger.error(f"Balance lookup failed: {str(e)}")
+            return 0.0
+
+    def get_token_price(self, mint:str) -> float:
+        base = {"So11111111111111111111111111111111111111112": 25,
+              "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": 1,
+              "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9": 1}
+        
+        if mint in base:
+            logger.info(f"Using base price for {mint[:8]}...: ${base[mint]}")
+            return base[mint]
+        
+        key = self._get_birdeye_api_key()
+        try:
+            logger.info(f"Fetching price for token {mint[:8]}...")
+            r = requests.get(
+                f"https://public-api.birdeye.so/public/price?address={mint}",
+                headers={"X-API-KEY": key},
+                timeout=10
+            )
+            
+            if r.ok and r.json().get("success"):
+                price = float(r.json()["data"]["value"])
+                logger.info(f"Price for {mint[:8]}...: ${price}")
+                return price
+            else:
+                logger.warning(f"Price API error: {r.status_code} - {r.text}")
+        except Exception as e:
+            logger.error(f"Price fetch error: {str(e)}")
+        
+        logger.warning(f"Price fallback 0.001 for {mint[:8]}...")
+        return 0.001
+
+    # ---- pool detection -------------------------------------------------
+    def monitor_new_liquidity_pools(self):
+        try:
+            k = self._get_birdeye_api_key()
+            logger.info("Scanning for new liquidity pools...")
+            
+            # Try each API endpoint with improved error handling
+            pools = None
+            
+            # Try new API
+            try:
+                pools = self._try_new_birdeye_pools_api(k)
+                if pools:
+                    logger.info(f"Found {len(pools)} pools via new API endpoint")
+            except Exception as e:
+                logger.warning(f"New pools API failed: {str(e)}")
+            
+            # Try standard API if new API failed
+            if not pools:
+                try:
+                    pools = self._try_birdeye_api(k)
+                    if pools:
+                        logger.info(f"Found {len(pools)} pools via standard API endpoint")
+                except Exception as e:
+                    logger.warning(f"Standard API failed: {str(e)}")
+            
+            # Try alternative API if both previous attempts failed
+            if not pools:
+                try:
+                    pools = self._try_birdeye_alt_api(k)
+                    if pools:
+                        logger.info(f"Found {len(pools)} pools via alternative API endpoint")
+                except Exception as e:
+                    logger.warning(f"Alternative API failed: {str(e)}")
+            
+            # Fall back to mock pools if all attempts failed
+            if not pools:
+                logger.warning("All pool API endpoints failed, using mock pools")
+                pools = self._get_mock_pools()
+                if pools:
+                    logger.info(f"Using {len(pools)} mock pools")
+            
+            return pools
+        except Exception as e:
+            logger.error(f"Pool scanning error: {str(e)}")
+            return self._get_mock_pools()
+
+    # (improved implementation for the helper APIs)
+    def _try_new_birdeye_pools_api(self, key):
+        logger.info("Trying new BirdEye pools API...")
+        try:
+            url = "https://public-api.birdeye.so/defi/new_pools"
+            r = requests.get(
+                url,
+                headers={"X-API-KEY": key},
+                timeout=10
+            )
+            
+            if not r.ok:
+                logger.warning(f"New pools API HTTP error: {r.status_code} - {r.text}")
+                return []
+            
+            data = r.json()
+            if not data.get("success"):
+                logger.warning(f"New pools API response error: {data.get('message', 'Unknown error')}")
+                return []
+            
+            pools = data.get("data", [])
+            logger.info(f"New pools API returned {len(pools)} pools")
+            return pools
+        except Exception as e:
+            logger.error(f"New pools API exception: {str(e)}")
+            return []
+    
+    def _try_birdeye_api(self, key):
+        logger.info("Trying standard BirdEye API...")
+        try:
+            url = "https://public-api.birdeye.so/defi/liquidity_pools"
+            r = requests.get(
+                url,
+                headers={"X-API-KEY": key},
+                params={"sort_by": "created", "sort_type": "desc", "limit": 20},
+                timeout=10
+            )
+            
+            if not r.ok:
+                logger.warning(f"Standard API HTTP error: {r.status_code} - {r.text}")
+                return []
+            
+            data = r.json()
+            if not data.get("success"):
+                logger.warning(f"Standard API response error: {data.get('message', 'Unknown error')}")
+                return []
+            
+            pools = data.get("data", {}).get("items", [])
+            logger.info(f"Standard API returned {len(pools)} pools")
+            return pools
+        except Exception as e:
+            logger.error(f"Standard API exception: {str(e)}")
+            return []
+    
+    def _try_birdeye_alt_api(self, key):
+        logger.info("Trying alternative BirdEye API...")
+        try:
+            url = "https://public-api.birdeye.so/defi/pools"
+            r = requests.get(
+                url,
+                headers={"X-API-KEY": key},
+                params={"sort_by": "created", "sort_type": "desc", "limit": 20},
+                timeout=10
+            )
+            
+            if not r.ok:
+                logger.warning(f"Alt API HTTP error: {r.status_code} - {r.text}")
+                return []
+            
+            data = r.json()
+            if not data.get("success"):
+                logger.warning(f"Alt API response error: {data.get('message', 'Unknown error')}")
+                return []
+            
+            pools = data.get("data", {}).get("items", [])
+            logger.info(f"Alt API returned {len(pools)} pools")
+            return pools
+        except Exception as e:
+            logger.error(f"Alt API exception: {str(e)}")
+            return []
+    
+    def _get_mock_pools(self):
+        # Return some mock pools for development/testing
+        logger.info("Generating mock pools")
+        return [
+            {
+                "address": f"mock_pool_{i}",
+                "name": f"MOCK/SOL Pool {i}",
+                "token_a": "So11111111111111111111111111111111111111112",
+                "token_b": f"mock_token_{i}",
+                "liquidity": 5000 + (i * 1000),
+                "volume_24h": 1000 + (i * 500),
+                "created": int(time.time()) - (i * 3600)
+            }
+            for i in range(5)
+        ]
+
+    # ---- token metadata -------------------------------------------------
+    def _get_token_metadata_from_alternative_endpoint(self, mint, key):
+        logger.info(f"Fetching token metadata from alternative endpoint for {mint[:8]}...")
+        try:
+            r = requests.get(
+                f"https://public-api.birdeye.so/public/tokeninfo?address={mint}",
+                headers={"X-API-KEY": key},
+                timeout=10
+            )
+            
+            if not r.ok:
+                logger.warning(f"Alt metadata HTTP error: {r.status_code} - {r.text}")
+                return None
+            
+            data = r.json()
+            if not data.get("success"):
+                logger.warning(f"Alt metadata response error: {data.get('message', 'Unknown error')}")
+                return None
+            
+            d = data.get("data", {})
+            if not d:
+                logger.warning("Alt metadata empty response")
+                return None
+            
+            meta = {
+                "name": d.get("name", "Unknown"),
+                "symbol": d.get("symbol", "UNK"),
+                "decimals": d.get("decimals", 9)
+            }
+            logger.info(f"Got metadata from alt endpoint: {meta['name']} ({meta['symbol']})")
+            return meta
+        except Exception as e:
+            logger.warning(f"Alt metadata error: {str(e)}")
+        return None
+
+    def get_token_metadata(self, mint):
+        # Known tokens
+        known = {
+            "So11111111111111111111111111111111111111112": ("Wrapped SOL", "SOL", 9),
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": ("USD Coin", "USDC", 6),
+            "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9": ("Tether", "USDT", 6)
+        }
+        
+        if mint in known:
+            n, s, d = known[mint]
+            logger.info(f"Using known metadata for {mint[:8]}...: {n} ({s})")
+            return {"name": n, "symbol": s, "decimals": d}
+
+        # Try primary endpoint
+        key = self._get_birdeye_api_key()
+        logger.info(f"Fetching token metadata for {mint[:8]}...")
+        url = f"https://public-api.birdeye.so/defi/token_metadata?address={mint}"
+        
+        try:
+            r = requests.get(url, headers={"X-API-KEY": key}, timeout=10)
+            
+            if not r.ok:
+                logger.warning(f"Metadata HTTP error: {r.status_code} - {r.text}")
+            else:
+                data = r.json()
+                if data.get("success"):
+                    d = data.get("data", {})
+                    meta = {
+                        "name": d.get("name", "Unknown"),
+                        "symbol": d.get("symbol", "UNK"),
+                        "decimals": d.get("decimals", 9)
+                    }
+                    logger.info(f"Got metadata: {meta['name']} ({meta['symbol']})")
+                    return meta
+                else:
+                    logger.warning(f"Metadata response error: {data.get('message', 'Unknown error')}")
+        except Exception as e:
+            logger.debug(f"Primary metadata failed: {str(e)}")
+
+        # Try alternative endpoint
+        try:
+            alt = self._get_token_metadata_from_alternative_endpoint(mint, key)
+            if alt:
+                return alt
+        except Exception as e:
+            logger.debug(f"Alt metadata error: {str(e)}")
+
+        # Use default values
+        logger.warning(f"Metadata unknown for {mint} - using defaults")
+        return {"name": "Unknown", "symbol": "UNK", "decimals": 9}
+
+    # ---- buy / sell / etc (improved mock versions) --------------------
+    def buy_token(self, mint, amount_sol, *args, **kwargs):
+        logger.info(f"MOCK BUY: {amount_sol} SOL of token {mint[:8]}...")
+        # Add detailed logging of parameters
+        if kwargs:
+            logger.info(f"Buy params: {kwargs}")
+        return {"success": True, "tx_id": f"MOCK_TX_{int(time.time())}", "amount": amount_sol * 1000}
+
+    def sell_token(self, mint, amount, *args, **kwargs):
+        logger.info(f"MOCK SELL: {amount} of token {mint[:8]}...")
+        # Add detailed logging of parameters
+        if kwargs:
+            logger.info(f"Sell params: {kwargs}")
+        return {"success": True, "tx_id": f"MOCK_TX_{int(time.time())}", "amount_sol": amount / 1000}
+
+    def sell_token_auto_withdraw(self, mint, amount, *args, **kwargs):
+        logger.info(f"MOCK SELL+WITHDRAW: {amount} of token {mint[:8]}...")
+        return self.sell_token(mint, amount, *args, **kwargs)
+
+    def transfer_sol(self, to_address, amount, *args, **kwargs):
+        logger.info(f"MOCK TRANSFER: {amount} SOL to {to_address[:8]}...")
+        return {"success": True, "tx_id": f"MOCK_TX_{int(time.time())}"}
+
+    def get_jupiter_quote(self, in_mint, out_mint, amount, *args, **kwargs):
+        logger.info(f"MOCK JUPITER QUOTE: {amount} of {in_mint[:8]}... to {out_mint[:8]}...")
+        # Simulate a reasonable quote with some spread
+        return {
+            "inAmount": amount,
+            "outAmount": amount * 1.95 + (amount * 0.1 * (hash(in_mint + out_mint) % 10) / 10),
+            "otherAmountThreshold": amount * 1.9,
+            "swapMode": "ExactIn",
+            "slippageBps": kwargs.get("slippage_bps", 50),
+            "platformFee": 0.0
+        }
+
+# helper so `real_trading_integration` can import
+def get_real_trader(): return SolanaRealTrader()

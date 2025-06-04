@@ -1,0 +1,37 @@
+{
+  "wallet_address": "5NY7AetzYAiNFu78mzcUcVKWWmSC2XFADyhUZFBQgVrL",
+  "first_successful_trade": "2ud7ixEqVGd1G8qbgfkVYebjDVejBPkCzrWBKeqrCFnxU6NQPW7rdScebe4VKmtMbDX3xW74d9Fk8xvTUcyKEHBV",
+  "trading_strategies": {
+    "conservative": {
+      "dca_interval_minutes": 120,
+      "dca_amount_sol": 0.001,
+      "max_trade_amount_sol": 0.005,
+      "daily_loss_limit_sol": 0.01,
+      "active_tokens": [
+        "USDC"
+      ]
+    },
+    "balanced": {
+      "dca_interval_minutes": 60,
+      "dca_amount_sol": 0.002,
+      "max_trade_amount_sol": 0.01,
+      "daily_loss_limit_sol": 0.02,
+      "active_tokens": [
+        "USDC",
+        "BONK"
+      ]
+    },
+    "aggressive": {
+      "dca_interval_minutes": 30,
+      "dca_amount_sol": 0.005,
+      "max_trade_amount_sol": 0.02,
+      "daily_loss_limit_sol": 0.05,
+      "active_tokens": [
+        "USDC",
+        "BONK",
+        "RAY"
+      ]
+    }
+  },
+  "created": "2025-05-29T19:47:33.465495"
+}

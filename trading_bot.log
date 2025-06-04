@@ -1,0 +1,166 @@
+# Solana Trading Bot Log - Started 2025-05-29 19:47:33.466166
+2025-05-29 19:55:22,738 | INFO | 🤖 Automated Trading Bot initialized for 5NY7AetzYAiNFu78mzcUcVKWWmSC2XFADyhUZFBQgVrL
+2025-05-29 19:55:22,738 | INFO | 📊 Config: DCA every 120min, Max trade: 0.005 SOL
+2025-05-29 19:55:22,739 | INFO | 🚀 STARTING AUTOMATED TRADING
+2025-05-29 19:55:22,739 | INFO | ==================================================
+2025-05-29 19:55:23,317 | INFO | 💰 Initial balance: 0.101868 SOL
+2025-05-29 19:55:23,317 | INFO | 🎯 DCA Strategy: 0.001 SOL → USDC every 120min
+2025-05-29 19:55:23,317 | INFO | 📊 Monitoring tokens: USDC
+2025-05-29 19:55:23,317 | INFO | ⚠️  Daily loss limit: 0.01 SOL
+2025-05-29 19:55:23,317 | INFO | ==================================================
+2025-05-29 19:55:23,520 | INFO | 🔄 Executing DCA: 0.001 SOL → USDC
+2025-05-29 19:55:23,520 | INFO | 🔄 Executing Dollar Cost Averaging: 0.001 SOL → USDC
+2025-05-29 19:55:24,568 | INFO | ✅ Trade executed: 4B8E3Vf9j1faHLmkqkaGQbfRfiZxGYLrJNatkCoFaN3DQkU6xtsZDEShXC6JZXPznPyD9fyPbZmdZ8Va2puGAtpc
+2025-05-29 19:55:24,568 | INFO | ✅ DCA trade completed
+2025-05-29 19:55:25,301 | INFO | 💰 Current balance: 0.101868 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:55:56,045 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:56:26,649 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:56:57,267 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:57:27,997 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:57:58,717 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:58:29,428 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:59:00,143 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 19:59:30,846 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:00:01,901 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:00:32,407 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:01:02,964 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:01:33,996 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:02:04,704 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:02:35,632 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:03:06,215 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:03:36,773 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:04:07,295 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:04:38,209 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:05:08,756 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:05:39,589 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:06:10,145 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:06:40,861 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:07:11,365 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:07:41,992 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:08:12,834 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:08:43,431 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:09:14,202 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:09:44,933 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:10:15,725 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:10:46,711 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:11:17,283 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:11:47,871 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:12:18,452 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:12:49,149 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:13:19,661 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:13:50,158 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:14:20,679 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:14:51,191 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:15:21,709 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:15:52,235 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:16:22,991 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:16:53,686 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:17:24,211 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:17:54,761 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:18:25,244 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:18:55,793 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:19:26,337 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:19:57,073 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:20:27,608 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:20:58,449 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:21:29,136 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:21:59,938 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:22:30,877 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:23:01,618 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:23:32,335 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:24:03,198 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:24:33,716 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:25:04,829 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:25:35,536 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:26:06,773 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:26:37,328 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:27:07,836 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:27:38,389 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:28:09,102 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:28:39,631 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:29:10,185 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:29:40,972 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:30:11,728 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:30:42,692 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:31:13,232 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:31:43,924 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:32:14,445 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-29 20:32:45,155 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:16:28,148 | INFO | 🤖 Automated Trading Bot initialized for 5NY7AetzYAiNFu78mzcUcVKWWmSC2XFADyhUZFBQgVrL
+2025-05-31 05:16:28,151 | INFO | 📊 Config: DCA every 120min, Max trade: 0.005 SOL
+2025-05-31 05:16:28,152 | INFO | 🚀 STARTING AUTOMATED TRADING
+2025-05-31 05:16:28,152 | INFO | ==================================================
+2025-05-31 05:16:28,303 | INFO | 💰 Initial balance: 0.100763 SOL
+2025-05-31 05:16:28,304 | INFO | 🎯 DCA Strategy: 0.001 SOL → USDC every 120min
+2025-05-31 05:16:28,304 | INFO | 📊 Monitoring tokens: USDC
+2025-05-31 05:16:28,304 | INFO | ⚠️  Daily loss limit: 0.01 SOL
+2025-05-31 05:16:28,304 | INFO | ==================================================
+2025-05-31 05:16:28,478 | INFO | 🔄 Executing DCA: 0.001 SOL → USDC
+2025-05-31 05:16:28,478 | INFO | 🔄 Executing Dollar Cost Averaging: 0.001 SOL → USDC
+2025-05-31 05:16:29,046 | INFO | ✅ Trade executed: gY6nru1E8hhtdNZCsNyKGAmb2BkzZHvMtxEiAEzdZvzc2xE8XeqrnfcUZyQTSfu4zci7cjQUdQgbGDGgBJKnBJ3
+2025-05-31 05:16:29,047 | INFO | ✅ DCA trade completed
+2025-05-31 05:16:29,365 | INFO | 💰 Current balance: 0.100763 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:16:59,913 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:17:30,488 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:18:01,003 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:18:31,717 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:19:02,214 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:19:33,060 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:20:04,143 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:20:34,953 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:21:05,811 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:21:36,669 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:22:07,408 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:22:38,318 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:23:08,830 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:23:39,336 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:24:09,927 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:24:40,428 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:25:11,145 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:25:42,064 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:26:12,580 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:26:43,438 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:27:14,371 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:27:45,079 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:28:15,818 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:28:46,351 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:29:16,866 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:29:47,384 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:30:18,177 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:30:48,709 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:31:19,259 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:31:50,016 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:32:20,940 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:32:51,475 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:33:22,183 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:33:52,789 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:34:23,325 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:34:53,849 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:35:24,437 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:35:55,169 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:36:25,898 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:36:56,450 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:37:27,593 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:37:58,127 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:38:29,101 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-05-31 05:38:59,766 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:44:17,114 | INFO | 🤖 Automated Trading Bot initialized for 5NY7AetzYAiNFu78mzcUcVKWWmSC2XFADyhUZFBQgVrL
+2025-06-04 17:44:17,115 | INFO | 📊 Config: DCA every 30min, Max trade: 0.02 SOL
+2025-06-04 17:44:17,115 | INFO | 🚀 STARTING AUTOMATED TRADING
+2025-06-04 17:44:17,115 | INFO | ==================================================
+2025-06-04 17:44:17,251 | INFO | 💰 Initial balance: 0.099758 SOL
+2025-06-04 17:44:17,252 | INFO | 🎯 DCA Strategy: 0.005 SOL → USDC every 30min
+2025-06-04 17:44:17,252 | INFO | 📊 Monitoring tokens: USDC, BONK, RAY
+2025-06-04 17:44:17,252 | INFO | ⚠️  Daily loss limit: 0.05 SOL
+2025-06-04 17:44:17,252 | INFO | ==================================================
+2025-06-04 17:44:18,160 | INFO | 🔄 Executing DCA: 0.005 SOL → USDC
+2025-06-04 17:44:18,161 | INFO | 🔄 Executing Dollar Cost Averaging: 0.005 SOL → USDC
+2025-06-04 17:44:18,673 | INFO | ✅ Trade executed: 5Mw34bhjnmNJMHMRkWCTyFCDDYwunkUdKZZRD533pZcNHsidY9ybKaCsXcmxfZgYKPPi8bNdUyKAQ3GdZf63anpj
+2025-06-04 17:44:18,673 | INFO | ✅ DCA trade completed
+2025-06-04 17:44:19,453 | INFO | 💰 Current balance: 0.099758 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:44:51,161 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:45:22,516 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:45:53,861 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:46:25,558 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:46:56,882 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
+2025-06-04 17:47:28,171 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL

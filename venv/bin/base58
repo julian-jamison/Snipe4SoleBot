@@ -1,4 +1,4 @@
-#!/root/Snipe4SoleBot/venv/bin/python3
+#!/root/Snipe4SoleBot/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

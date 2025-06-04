@@ -1,114 +1,68 @@
-import json
-import os
-import time
-import asyncio
-from telegram import Update, Bot
-from telegram.ext import ContextTypes
+"""
+Telegram notification module for the trading bot.
+This module handles sending notifications via Telegram.
+"""
+import logging
+import requests
 from decrypt_config import config
 
-STATUS_FILE = "bot_status.json"
-PORTFOLIO_FILE = "portfolio.json"
-WALLETS_FILE = "wallets.json"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("telegram_notifications")
 
-TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
-TELEGRAM_CHAT_ID = config["telegram"]["chat_id"]
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-async def safe_send_telegram_message(message: str):
+def send_telegram_message(message, disable_notification=False):
+    """
+    Send a message via Telegram
+    
+    Args:
+        message (str): Message to send
+        disable_notification (bool): Whether to disable notification sound
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    # Get Telegram config
+    telegram_config = config.get("telegram", {})
+    bot_token = telegram_config.get("bot_token")
+    chat_id = telegram_config.get("chat_id")
+    
+    # Check if Telegram is configured
+    if not bot_token or not chat_id:
+        logger.warning("Telegram not configured. Message not sent: " + message[:100] + "...")
+        # Print to console instead
+        print(f"📩 Telegram message: {message}")
+        return False
+    
     try:
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        print(f"📩 Telegram message sent: {message}")
-    except RuntimeError as e:
-        if "event loop is closed" in str(e) or "no current event loop" in str(e):
-            print("🔁 Creating new event loop to send Telegram message...")
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message))
-            loop.close()
+        # API URL
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        
+        # Parameters
+        data = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_notification": disable_notification
+        }
+        
+        # Send request
+        response = requests.post(url, data=data, timeout=10)
+        
+        # Check response
+        if response.status_code == 200:
+            logger.info(f"Telegram message sent: {message[:50]}...")
+            print(f"📩 Telegram message sent: {message[:50]}...")
+            return True
         else:
-            print(f"❌ Failed to send Telegram message: {e}")
+            logger.error(f"Failed to send Telegram message: {response.status_code} - {response.text}")
+            return False
+            
     except Exception as e:
-        print(f"❌ General error sending Telegram message: {e}")
+        logger.error(f"Error sending Telegram message: {e}")
+        return False
 
-
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
-
-    print(f"📩 Received /status from chat_id={update.effective_chat.id}")
-
-    try:
-        with open(STATUS_FILE, "r") as f:
-            status_data = json.load(f)
-        uptime = round((time.time() - status_data["start_time"]) / 60, 2)
-        msg = (
-            f"📈 Bot Status:\n"
-            f"Uptime: {uptime} mins\n"
-            f"Trades: {status_data['trade_count']}\n"
-            f"Profit: {status_data['profit']} SOL"
-        )
-    except Exception as e:
-        msg = f"⚠️ Could not load bot status: {e}"
-
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
-
-
-async def wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
-
-    print(f"📩 Received /wallets from chat_id={update.effective_chat.id}")
-
-    try:
-        with open(PORTFOLIO_FILE, "r") as pf:
-            portfolio = json.load(pf)
-    except Exception as e:
-        portfolio = {}
-        print(f"⚠️ Error loading portfolio.json: {e}")
-
-    try:
-        with open(WALLETS_FILE, "r") as wf:
-            wallets_data = json.load(wf)["wallets"]
-    except Exception as e:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"⚠️ Failed to load wallets.json: {e}")
-        return
-
-    if not portfolio:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Portfolio is empty.")
-        return
-
-    message = "👛 Wallet Overview:\n"
-    for name, address in wallets_data.items():
-        value = 0
-        for token_data in portfolio.get(address, {}).values():
-            value += token_data.get("quantity", 0) * token_data.get("avg_price", 0)
-        message += f"- {name} ({address[:5]}...): {value:.4f} SOL\n"
-
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
-
-async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"📩 Received /pause from chat_id={update.effective_chat.id}")
-    with open("pause_flag", "w") as f:
-        f.write("1")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="⏸ Bot paused.")
-
-
-async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"📩 Received /resume from chat_id={update.effective_chat.id}")
-    if os.path.exists("pause_flag"):
-        os.remove("pause_flag")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="▶️ Bot resumed.")
-
-
-async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"📩 Received /debug from chat_id={update.effective_chat.id}")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Debug mode is working.")
-
-def send_telegram_message(message):
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(safe_send_telegram_message(message))
-    except RuntimeError:
-        asyncio.run(safe_send_telegram_message(message))
-
+# For testing
+if __name__ == "__main__":
+    message = "🚀 This is a test message from the Solana trading bot!"
+    success = send_telegram_message(message)
+    print(f"Message sent: {success}")

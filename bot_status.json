@@ -1,6 +1,43 @@
 {
-    "start_time": 0,
-    "trade_count": 0,
-    "profit": 0.0,
-    "last_update": 0
+  "status": "running",
+  "uptime": "0:05:02",
+  "trade_count": 0,
+  "profit": 0,
+  "memory_mb": 94.0,
+  "active_strategies": [
+    "sniper",
+    "arbitrage",
+    "market_making",
+    "trend_following"
+  ],
+  "wallet_balances": {
+    "main": 0.0,
+    "backup": 0.0,
+    "cold_storage": 0.0,
+    "reserve_fund": 0.0
+  },
+  "open_positions": 0,
+  "strategy_stats": {
+    "sniper": {
+      "enabled": true,
+      "trades": 0,
+      "profit": 0.0
+    },
+    "arbitrage": {
+      "enabled": true,
+      "trades": 0,
+      "profit": 0.0
+    },
+    "market_making": {
+      "enabled": true,
+      "trades": 0,
+      "profit": 0.0
+    },
+    "trend_following": {
+      "enabled": true,
+      "trades": 0,
+      "profit": 0.0
+    }
+  },
+  "last_update": "2025-05-31 05:23:26"
 }

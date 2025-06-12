@@ -11,8 +11,8 @@ async def execute_real_jupiter_trade():
     private_key_hex = "295a3d0a5562e8772964abfc5fe5c36be0ca7e78ceed3a238dd249526ff5fd4840f31de17a19f5ba48a00b32a5317ed23d6c82ff211e4ceb8a5f22736c1dbe65"
     
     from solders.keypair import Keypair
-    keypair = Keypair.from_bytes(bytes.fromhex(private_key_hex))
-    wallet_pubkey = str(keypair.pubkey())
+    keypair = Keypair.from_bytes(bytes.fromhex(private_key_hex)
+    wallet_pubkey = str(keypair.pubkey()
     
     print(f'Wallet: {wallet_pubkey}')
     
@@ -37,7 +37,7 @@ async def execute_real_jupiter_trade():
     quote_params = {
         'inputMint': 'So11111111111111111111111111111111111111112',  # SOL
         'outputMint': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
-        'amount': str(int(0.001 * 1e9)),  # 0.001 SOL in lamports
+        'amount': str(int(0.001 * 1e9),  # 0.001 SOL in lamports
         'slippageBps': '300'  # 3% slippage
     }
     
@@ -91,7 +91,7 @@ async def execute_real_jupiter_trade():
         
         # Create new transaction with signature
         # Jupiter transactions expect 1 signature from the user
-        signatures = [Signature.from_bytes(bytes(signature))]
+        signatures = [Signature.from_bytes(bytes(signature)]
         signed_transaction = VersionedTransaction(signatures, transaction.message)
         
         # Serialize signed transaction
@@ -175,7 +175,7 @@ async def execute_real_jupiter_trade():
     except Exception as e:
         print(f'❌ Signing error: {str(e)}')
         import traceback
-        print('Traceback:', traceback.format_exc())
+        print('Traceback:', traceback.format_exc()
     
     return False
 
@@ -189,7 +189,7 @@ def main():
     
     confirm = input('🔥 EXECUTE REAL TRADE WITH PROPER SIGNING? (yes/no): ')
     if confirm.lower() == 'yes':
-        success = asyncio.run(execute_real_jupiter_trade())
+        success = asyncio.run(execute_real_jupiter_trade()
         if success:
             print('\n' + '='*60)
             print('🎉 SUCCESS! Your first real Solana trade!')

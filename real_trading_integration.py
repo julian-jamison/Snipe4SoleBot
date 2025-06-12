@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional
 from solana_real_trader import get_real_trader
 
 # Import from existing modules
-from telegram_notifications import send_telegram_message
+from telegram_notifications import send_telegram_message_async
 from decrypt_config import config
 
 # Configure logging
@@ -69,7 +69,7 @@ def buy_token_multi_wallet(token_address, wallets, dex="jupiter"):
         
     # Log real buy attempt
     logger.info(f"Executing REAL buy for {token_address}")
-    send_telegram_message(f"🔴 REAL TRADING: Buying {token_address}")
+   await send_telegram_message_async(f"🔴 REAL TRADING: Buying {token_address}")
     
     # Get real trader instance
     trader = get_real_trader()
@@ -80,7 +80,7 @@ def buy_token_multi_wallet(token_address, wallets, dex="jupiter"):
         if isinstance(wallet, str):
             wallet_addresses.append(wallet)
         elif hasattr(wallet, 'pubkey'):
-            wallet_addresses.append(wallet.pubkey())
+            wallet_addresses.append(wallet.pubkey()
         elif isinstance(wallet, dict) and 'wallet' in wallet:
             wallet_addresses.append(wallet['wallet'])
             
@@ -92,7 +92,7 @@ def buy_token_multi_wallet(token_address, wallets, dex="jupiter"):
         token_symbol = token_info.get("symbol", "Unknown")
         
         # Send notification
-        send_telegram_message(
+       await send_telegram_message_async(
             f"✅ REAL BUY EXECUTED:\n"
             f"Token: {token_symbol}\n"
             f"Token Address: {token_address}\n"
@@ -126,7 +126,7 @@ def sell_token_multi_wallet(token_address, wallets, dex="jupiter"):
         
     # Log real sell attempt
     logger.info(f"Executing REAL sell for {token_address}")
-    send_telegram_message(f"🔴 REAL TRADING: Selling {token_address}")
+   await send_telegram_message_async(f"🔴 REAL TRADING: Selling {token_address}")
     
     # Get real trader instance
     trader = get_real_trader()
@@ -137,7 +137,7 @@ def sell_token_multi_wallet(token_address, wallets, dex="jupiter"):
         if isinstance(wallet, str):
             wallet_addresses.append(wallet)
         elif hasattr(wallet, 'pubkey'):
-            wallet_addresses.append(wallet.pubkey())
+            wallet_addresses.append(wallet.pubkey()
         elif isinstance(wallet, dict) and 'wallet' in wallet:
             wallet_addresses.append(wallet['wallet'])
             
@@ -149,7 +149,7 @@ def sell_token_multi_wallet(token_address, wallets, dex="jupiter"):
         token_symbol = token_info.get("symbol", "Unknown")
         
         # Send notification
-        send_telegram_message(
+       await send_telegram_message_async(
             f"✅ REAL SELL EXECUTED:\n"
             f"Token: {token_symbol}\n"
             f"Token Address: {token_address}\n"
@@ -249,7 +249,7 @@ def sell_token_auto_withdraw(token_address, wallets, dex="jupiter"):
         token_symbol = token_info.get("symbol", "Unknown")
         
         # Send notification
-        send_telegram_message(
+       await send_telegram_message_async(
             f"✅ REAL SELL & WITHDRAW EXECUTED:\n"
             f"Token: {token_symbol}\n"
             f"Token Address: {token_address}\n"
@@ -327,7 +327,7 @@ def should_buy_token(token_address, pool_info=None):
     
     # Check liquidity if pool_info is provided
     if pool_info:
-        liquidity = float(pool_info.get("liquidity", 0))
+        liquidity = float(pool_info.get("liquidity", 0)
         if liquidity < min_liquidity:
             logger.info(f"Skipping {token_address}: Liquidity (${liquidity}) below minimum (${min_liquidity})")
             return False
@@ -355,9 +355,9 @@ def monitor_position(token_address, wallet, initial_price):
     """
     # Extract profit target and stop loss from config
     trade_settings = config.get("trade_settings", {})
-    profit_target = float(trade_settings.get("profit_target", 10))  # Default 10%
-    stop_loss = float(trade_settings.get("stop_loss", -5))  # Default -5%
-    check_interval = float(trade_settings.get("trade_cooldown", 5))  # Default 5 seconds
+    profit_target = float(trade_settings.get("profit_target", 10)  # Default 10%
+    stop_loss = float(trade_settings.get("stop_loss", -5)  # Default -5%
+    check_interval = float(trade_settings.get("trade_cooldown", 5)  # Default 5 seconds
     
     # Get wallet address
     if isinstance(wallet, str):
@@ -375,7 +375,7 @@ def monitor_position(token_address, wallet, initial_price):
     token_symbol = token_info.get("symbol", "Unknown")
     
     logger.info(f"Starting to monitor {token_symbol} ({token_address}) position")
-    send_telegram_message(f"🔍 Monitoring {token_symbol} position for profit target ({profit_target}%) or stop loss ({stop_loss}%)")
+   await send_telegram_message_async(f"🔍 Monitoring {token_symbol} position for profit target ({profit_target}%) or stop loss ({stop_loss}%)")
     
     monitoring_active = True
     
@@ -390,7 +390,7 @@ def monitor_position(token_address, wallet, initial_price):
                 continue
                 
             # Calculate profit percentage
-            profit_percent = ((current_price - initial_price) / initial_price) * 100
+            profit_percent = (current_price - initial_price) / initial_price) * 100
             
             logger.info(f"{token_symbol} current price: ${current_price:.8f}, profit: {profit_percent:.2f}%")
             
@@ -400,10 +400,10 @@ def monitor_position(token_address, wallet, initial_price):
                 
                 # Sell token
                 if is_real_trading_enabled():
-                    send_telegram_message(f"🎯 Profit target hit for {token_symbol}! Selling at {profit_percent:.2f}% profit")
+                   await send_telegram_message_async(f"🎯 Profit target hit for {token_symbol}! Selling at {profit_percent:.2f}% profit")
                     sell_result = sell_token_auto_withdraw(token_address, [wallet_address])
                     
-                    if sell_result and (sell_result.get("successful_sells", 0) > 0 or sell_result.get("success", False)):
+                    if sell_result and (sell_result.get("successful_sells", 0) > 0 or sell_result.get("success", False):
                         logger.info(f"Successfully sold {token_symbol} at profit target")
                         monitoring_active = False
                     else:
@@ -411,7 +411,7 @@ def monitor_position(token_address, wallet, initial_price):
                 else:
                     # Simulate sell in mock mode
                     logger.info(f"Mock selling {token_symbol} at profit target")
-                    send_telegram_message(f"✅ Mock profit target hit: {token_symbol} would be sold at {profit_percent:.2f}% profit")
+                   await send_telegram_message_async(f"✅ Mock profit target hit: {token_symbol} would be sold at {profit_percent:.2f}% profit")
                     monitoring_active = False
             
             # Check if stop loss hit
@@ -420,10 +420,10 @@ def monitor_position(token_address, wallet, initial_price):
                 
                 # Sell token
                 if is_real_trading_enabled():
-                    send_telegram_message(f"🛑 Stop loss triggered for {token_symbol}! Selling at {profit_percent:.2f}% loss")
+                   await send_telegram_message_async(f"🛑 Stop loss triggered for {token_symbol}! Selling at {profit_percent:.2f}% loss")
                     sell_result = sell_token_auto_withdraw(token_address, [wallet_address])
                     
-                    if sell_result and (sell_result.get("successful_sells", 0) > 0 or sell_result.get("success", False)):
+                    if sell_result and (sell_result.get("successful_sells", 0) > 0 or sell_result.get("success", False):
                         logger.info(f"Successfully sold {token_symbol} at stop loss")
                         monitoring_active = False
                     else:
@@ -431,7 +431,7 @@ def monitor_position(token_address, wallet, initial_price):
                 else:
                     # Simulate sell in mock mode
                     logger.info(f"Mock selling {token_symbol} at stop loss")
-                    send_telegram_message(f"⛔ Mock stop loss hit: {token_symbol} would be sold at {profit_percent:.2f}% loss")
+                   await send_telegram_message_async(f"⛔ Mock stop loss hit: {token_symbol} would be sold at {profit_percent:.2f}% loss")
                     monitoring_active = False
             
         except Exception as e:
@@ -450,11 +450,11 @@ def initialize_real_trading():
         trader = get_real_trader()
         
         # Send notification
-        send_telegram_message("🔴 REAL TRADING MODE ACTIVATED - Bot will execute actual trades on Solana!")
+       await send_telegram_message_async("🔴 REAL TRADING MODE ACTIVATED - Bot will execute actual trades on Solana!")
         
         # Return the trader instance
         return trader
     else:
         logger.info("Real trading is DISABLED. Running in simulation mode.")
-        send_telegram_message("🔵 Simulation mode active - No real trades will be executed")
+       await send_telegram_message_async("🔵 Simulation mode active - No real trades will be executed")
         return None

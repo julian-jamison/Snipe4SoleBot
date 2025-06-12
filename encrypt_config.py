@@ -12,7 +12,7 @@ if not raw_key:
     raise EnvironmentError("❌ CONFIG_ENCRYPTION_KEY is not set in the environment.")
 ENCRYPTION_KEY = bytes.fromhex(raw_key)  # Must be 32-byte hex (64 characters)
 
-ENCRYPTION_KEY = os.getenv("CONFIG_ENCRYPTION_KEY").encode().ljust(32, b'\0')
+ENCRYPTION_KEY = os.getenv("CONFIG_ENCRYPTION_KEY").encode().ljust(32, b'')
 CONFIG_FILE = "config.json"
 ENCRYPTED_FILE = "config.enc"
 

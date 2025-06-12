@@ -1,7 +1,7 @@
 import json
 import time
 from utils import load_config
-from telegram_notifications import send_telegram_message
+from telegram_notifications import send_telegram_message_async
 
 TRANSACTION_FEE = 0.0001  # Estimated SOL transaction fee (adjust as needed)
 WITHDRAWAL_THRESHOLD = 5  # Minimum profit (SOL) before auto-withdrawal
@@ -14,7 +14,7 @@ def distribute_profits(profit_amount):
 
     if profit_amount < WITHDRAWAL_THRESHOLD:
         print(f"🔹 Profit ({profit_amount} SOL) is below threshold ({WITHDRAWAL_THRESHOLD} SOL). Skipping withdrawal.")
-        send_telegram_message(f"⚠️ Profit too low for withdrawal: {profit_amount} SOL")
+       await send_telegram_message_async(f"⚠️ Profit too low for withdrawal: {profit_amount} SOL")
         return
 
     distributions = {
@@ -27,10 +27,10 @@ def distribute_profits(profit_amount):
         if amount > TRANSACTION_FEE:  # Ensure there’s enough to cover fees
             final_amount = amount - TRANSACTION_FEE
             print(f"💰 Transferring {final_amount:.6f} SOL to {wallets[wallet]} (after fees)")
-            send_telegram_message(f"✅ {final_amount:.6f} SOL sent to {wallet} wallet.")
+           await send_telegram_message_async(f"✅ {final_amount:.6f} SOL sent to {wallet} wallet.")
         else:
             print(f"⚠️ Not enough balance to transfer to {wallet}. Skipping.")
-            send_telegram_message(f"❌ Skipped transfer to {wallet}. Amount too low.")
+           await send_telegram_message_async(f"❌ Skipped transfer to {wallet}. Amount too low.")
 
     print("✅ Profit distribution completed.")
 

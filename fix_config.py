@@ -6,7 +6,7 @@ import json
 config = decrypt_config_file()
 
 # Show current key
-print("OLD BirdEye key:", config['api_keys'].get('birdeye_api_key', 'NOT FOUND'))
+print("OLD BirdEye key:", config['api_keys'].get('birdeye_api_key', 'NOT FOUND')))
 
 # Update to the correct key
 config['api_keys']['birdeye_api_key'] = '5e7294e4808a4e79ed4392a4510fd72'

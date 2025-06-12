@@ -13,7 +13,7 @@ async def execute_direct_jupiter_trade():
     if 'solana_wallets' in config:
         # Check structure of solana_wallets
         wallets = config['solana_wallets']
-        print(f'Found wallets: {list(wallets.keys()) if isinstance(wallets, dict) else wallets}')
+        print(f'Found wallets: {list(wallets.keys() if isinstance(wallets, dict) else wallets})')
         
         if isinstance(wallets, dict):
             # Get first wallet or main wallet
@@ -23,7 +23,7 @@ async def execute_direct_jupiter_trade():
                 private_key_hex = wallets['wallet1']['private_key']
             else:
                 # Get first available wallet
-                first_wallet_key = list(wallets.keys())[0]
+                first_wallet_key = list(wallets.keys()[0]
                 private_key_hex = wallets[first_wallet_key]['private_key']
         else:
             print('❌ Unexpected wallet structure')
@@ -37,7 +37,7 @@ async def execute_direct_jupiter_trade():
     
     from solders.keypair import Keypair
     keypair = Keypair.from_bytes(private_key_bytes)
-    wallet_pubkey = str(keypair.pubkey())
+    wallet_pubkey = str(keypair.pubkey()
     
     print(f'Wallet: {wallet_pubkey}')
     
@@ -72,7 +72,7 @@ async def execute_direct_jupiter_trade():
     quote_params = {
         'inputMint': 'So11111111111111111111111111111111111111112',
         'outputMint': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        'amount': str(int(0.001 * 1e9)),
+        'amount': str(int(0.001 * 1e9),
         'slippageBps': '100'
     }
     
@@ -203,7 +203,7 @@ def main():
     
     confirm = input('Execute REAL $0.17 trade? (yes/no): ')
     if confirm.lower() == 'yes':
-        success = asyncio.run(execute_direct_jupiter_trade())
+        success = asyncio.run(execute_direct_jupiter_trade()
         if success:
             print()
             print('='*60)

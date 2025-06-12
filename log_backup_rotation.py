@@ -50,7 +50,7 @@ def rotate_old_backups():
     for file in os.listdir(BACKUP_FOLDER):
         filepath = os.path.join(BACKUP_FOLDER, file)
         if os.path.isfile(filepath):
-            created_time = datetime.fromtimestamp(os.path.getctime(filepath))
+            created_time = datetime.fromtimestamp(os.path.getctime(filepath)
             if (now - created_time).days > RETENTION_DAYS:
                 os.remove(filepath)
                 print(f"🗑 Deleted old backup: {file}")
@@ -59,7 +59,7 @@ def rotate_old_backups():
 def clean_old_models():
     for file in os.listdir('.'):
         if file.startswith("lstm_model") and file.endswith(".h5"):
-            created_time = datetime.fromtimestamp(os.path.getctime(file))
+            created_time = datetime.fromtimestamp(os.path.getctime(file)
             if (datetime.now() - created_time).days > RETENTION_DAYS:
                 os.remove(file)
                 print(f"🧹 Deleted old model: {file}")

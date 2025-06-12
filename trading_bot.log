@@ -164,3 +164,77 @@
 2025-06-04 17:46:25,558 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
 2025-06-04 17:46:56,882 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
 2025-06-04 17:47:28,171 | INFO | 💰 Current balance: 0.094742 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:49:25,367 | INFO | 🤖 Automated Trading Bot initialized for 5NY7AetzYAiNFu78mzcUcVKWWmSC2XFADyhUZFBQgVrL
+2025-06-11 04:49:25,367 | INFO | 📊 Config: DCA every 60min, Max trade: 0.01 SOL
+2025-06-11 04:49:25,368 | INFO | 🚀 STARTING AUTOMATED TRADING
+2025-06-11 04:49:25,368 | INFO | ==================================================
+2025-06-11 04:49:25,564 | INFO | 💰 Initial balance: 0.000000 SOL
+2025-06-11 04:49:25,564 | INFO | 🎯 DCA Strategy: 0.002 SOL → USDC every 60min
+2025-06-11 04:49:25,564 | INFO | 📊 Monitoring tokens: USDC, BONK
+2025-06-11 04:49:25,564 | INFO | ⚠️  Daily loss limit: 0.02 SOL
+2025-06-11 04:49:25,564 | INFO | ==================================================
+2025-06-11 04:49:25,927 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:49:25,928 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:49:26,866 | ERROR | ❌ Trade execution failed
+2025-06-11 04:49:26,866 | WARNING | ❌ DCA trade failed
+2025-06-11 04:49:27,421 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:49:57,817 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:49:57,818 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:49:58,870 | ERROR | ❌ Trade execution failed
+2025-06-11 04:49:58,870 | WARNING | ❌ DCA trade failed
+2025-06-11 04:49:59,360 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:50:29,756 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:50:29,756 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:50:30,387 | ERROR | ❌ Trade execution failed
+2025-06-11 04:50:30,387 | WARNING | ❌ DCA trade failed
+2025-06-11 04:50:31,264 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:51:01,641 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:51:01,641 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:51:02,616 | ERROR | ❌ Trade execution failed
+2025-06-11 04:51:02,619 | WARNING | ❌ DCA trade failed
+2025-06-11 04:51:03,470 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:51:33,874 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:51:33,875 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:51:34,879 | ERROR | ❌ Trade execution failed
+2025-06-11 04:51:34,880 | WARNING | ❌ DCA trade failed
+2025-06-11 04:51:35,393 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:52:05,808 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:52:05,808 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:52:06,849 | ERROR | ❌ Trade execution failed
+2025-06-11 04:52:06,850 | WARNING | ❌ DCA trade failed
+2025-06-11 04:52:07,349 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:52:37,758 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:52:37,760 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:52:38,306 | ERROR | ❌ Trade execution failed
+2025-06-11 04:52:38,307 | WARNING | ❌ DCA trade failed
+2025-06-11 04:52:38,955 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:53:09,378 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:53:09,378 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:53:09,917 | ERROR | ❌ Trade execution failed
+2025-06-11 04:53:09,917 | WARNING | ❌ DCA trade failed
+2025-06-11 04:53:10,616 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:53:41,024 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:53:41,024 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:53:41,629 | ERROR | ❌ Trade execution failed
+2025-06-11 04:53:41,629 | WARNING | ❌ DCA trade failed
+2025-06-11 04:53:42,140 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:54:12,529 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:54:12,530 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:54:13,148 | ERROR | ❌ Trade execution failed
+2025-06-11 04:54:13,148 | WARNING | ❌ DCA trade failed
+2025-06-11 04:54:13,826 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:54:44,268 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:54:44,269 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:54:44,935 | ERROR | ❌ Trade execution failed
+2025-06-11 04:54:44,935 | WARNING | ❌ DCA trade failed
+2025-06-11 04:54:45,903 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:55:16,320 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:55:16,320 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:55:17,102 | ERROR | ❌ Trade execution failed
+2025-06-11 04:55:17,102 | WARNING | ❌ DCA trade failed
+2025-06-11 04:55:17,617 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL
+2025-06-11 04:55:48,026 | INFO | 🔄 Executing DCA: 0.002 SOL → USDC
+2025-06-11 04:55:48,026 | INFO | 🔄 Executing Dollar Cost Averaging: 0.002 SOL → USDC
+2025-06-11 04:55:48,569 | ERROR | ❌ Trade execution failed
+2025-06-11 04:55:48,569 | WARNING | ❌ DCA trade failed
+2025-06-11 04:55:49,074 | INFO | 💰 Current balance: 0.000000 SOL | Daily PnL: 0.000000 SOL

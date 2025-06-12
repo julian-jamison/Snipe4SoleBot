@@ -78,7 +78,7 @@ class AutomatedTradingBot:
         # Initialize keypair
         from solders.keypair import Keypair
         self.keypair = Keypair.from_bytes(bytes.fromhex(private_key_hex))
-        self.wallet_pubkey = str(self.keypair.pubkey())
+        self.wallet_pubkey = str(self.keypair.pubkey()
         
         # Trading state
         self.price_history: Dict[str, List[Tuple[datetime, float]]] = {}
@@ -133,7 +133,7 @@ class AutomatedTradingBot:
                 if token not in self.price_history:
                     self.price_history[token] = []
                 
-                self.price_history[token].append((now, price))
+                self.price_history[token].append(now, price)
                 
                 # Keep only last 24 hours of data
                 cutoff = now - timedelta(hours=24)
@@ -179,7 +179,7 @@ class AutomatedTradingBot:
         
         # Check if it's time for DCA
         if (self.last_dca_time is None or 
-            now - self.last_dca_time >= timedelta(minutes=self.config.dca_interval_minutes)):
+            now - self.last_dca_time >= timedelta(minutes=self.config.dca_interval_minutes):
             
             logger.info(f"🔄 Executing DCA: {self.config.dca_amount_sol} SOL → {self.config.dca_target_token}")
             
@@ -511,4 +511,4 @@ async def main():
     await bot.start_automated_trading()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main()

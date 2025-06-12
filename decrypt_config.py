@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("decrypt_config")
 
 # Configuration file paths
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "config.json.encrypted"
 ENCRYPTED_CONFIG_FILE = "config.encrypted"
 KEY_FILE = "config.key"
 PASSWORD_ENCRYPTED_FILE = "config.json.encrypted"
@@ -175,20 +175,20 @@ def load_config(password=None):
     
     # Fall back to unencrypted config
     try:
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r") as f:
+        if os.path.exists("config.json"):
+            with open("config.json", "r") as f:
                 config_data = json.load(f)
             logger.info("Using unencrypted configuration file")
             return config_data
         else:
-            logger.warning(f"Configuration file not found: {CONFIG_FILE}, using default config")
+            logger.warning("Configuration file not found, using default config")
             return get_default_config()
     
     except FileNotFoundError:
-        logger.warning(f"Configuration file not found: {CONFIG_FILE}, using default config")
+        logger.warning("Configuration file not found, using default config")
         return get_default_config()
     except json.JSONDecodeError:
-        logger.critical(f"Invalid JSON in configuration file: {CONFIG_FILE}")
+        logger.critical("Invalid JSON in configuration file")
         return get_default_config()
     except Exception as e:
         logger.critical(f"Error loading configuration: {e}")
@@ -233,14 +233,15 @@ def get_default_config():
         ]
     }
 
-# Function to clean sensitive data from memory
+# Function to clean sensitive data from memory (for debugging/logging only)
 def clean_sensitive_data(config_data):
-    """Remove sensitive data from the configuration object."""
+    """Remove sensitive data from the configuration object for safe logging."""
     if not config_data or not isinstance(config_data, dict):
-        return
+        return {}
     
     # Create a deep copy to avoid modifying the original
-    config_copy = config_data.copy()
+    import copy
+    config_copy = copy.deepcopy(config_data)
     
     # Remove private keys
     if 'solana_wallets' in config_copy:
@@ -258,19 +259,22 @@ def clean_sensitive_data(config_data):
     
     return config_copy
 
-# Export the configuration
+# Export the configuration - IMPORTANT: Use the original, not sanitized version
 config = load_config()
 
-# For testing/debugging, create a clean version without sensitive data
-safe_config = clean_sensitive_data(config.copy()) if config else None
+# Create a separate safe version for debugging (but don't use this as the main config)
+_safe_config_for_debugging = clean_sensitive_data(config.copy() if config else None)
 
 # For testing
 if __name__ == "__main__":
     print("Configuration loaded successfully!")
-    print(f"Telegram bot configured: {'Yes' if config['telegram']['bot_token'] else 'No'}")
-    print(f"Number of wallets: {len([k for k in config['solana_wallets'].keys() if k.startswith('wallet_')])}")
-    print(f"Trading in live mode: {'Yes' if config['api_keys']['live_mode'] else 'No'}")
-    
-    # Print safe version of config for debugging
-    print("\nSafe configuration (sensitive data redacted):")
-    print(json.dumps(safe_config, indent=2))
+    if config:
+        print(f"Telegram bot configured: {'Yes' if config.get('telegram', {}).get('bot_token') else 'No'}")
+        print(f"Number of wallets: {len([k for k in config.get('solana_wallets', {}).keys() if k.startswith('wallet_')])}")
+        print(f"Trading in live mode: {'Yes' if config.get('api_keys', {}).get('live_mode') else 'No'}")
+        
+        # Print safe version of config for debugging
+        print("\nSafe configuration (sensitive data redacted):")
+        print(json.dumps(_safe_config_for_debugging, indent=2))
+    else:
+        print("❌ Failed to load configuration")

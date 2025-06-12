@@ -2,13 +2,13 @@ import time
 from trade_execution import execute_trade
 from mempool_monitor import check_mempool
 from ai_prediction import predict_market_trend
-from telegram_notifications import send_telegram_message
+from telegram_notifications import send_telegram_message_async
 from health_check import send_health_update
 from backup_config import backup_to_gdrive
 
 def main():
     """Main trading bot loop."""
-    send_telegram_message("🚀 Snipe4SoleBot has started!")
+   await send_telegram_message_async("🚀 Snipe4SoleBot has started!")
     
     while True:
         print("🔍 Monitoring market and mempool...")
@@ -27,7 +27,7 @@ def main():
         # Backup encrypted config to Google Drive every 24 hours
         if time.time() % 86400 < 2:  # Check if a day has passed
             backup_to_gdrive()
-            send_telegram_message("🔄 Config backup completed!")
+           await send_telegram_message_async("🔄 Config backup completed!")
         
         time.sleep(2)
 

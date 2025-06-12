@@ -1,9 +1,6 @@
 from telegram.ext import Updater, CommandHandler
-<<<<<<< HEAD
-from telegram_notifications import safe_send_telegram_message
-=======
-from telegram_notifications import send_telegram_message
->>>>>>> fb6e5d71 (Add files via upload)
+from telegram_notifications import send_telegram_message_async
+from telegram_notifications import send_telegram_message_async
 from trade_execution import execute_trade
 from health_check import send_health_update
 from restore_backup import restore_from_gdrive
@@ -48,7 +45,7 @@ def shutdown(update, context):
         update.message.reply_text("❌ You are not authorized to perform this action.")
         return
     update.message.reply_text("⚠️ Shutting down bot...")
-    send_telegram_message("🔴 Bot has been stopped remotely.")
+   await send_telegram_message_async("🔴 Bot has been stopped remotely.")
     os._exit(0)
 
 def setup_telegram_bot(bot_token):
@@ -56,11 +53,11 @@ def setup_telegram_bot(bot_token):
     updater = Updater(bot_token, use_context=True)
     dp = updater.dispatcher
     
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("restore", restore))
-    dp.add_handler(CommandHandler("health", health))
-    dp.add_handler(CommandHandler("trade", execute_trade_command))
-    dp.add_handler(CommandHandler("shutdown", shutdown))
+    dp.add_handler(CommandHandler("start", start)
+    dp.add_handler(CommandHandler("restore", restore)
+    dp.add_handler(CommandHandler("health", health)
+    dp.add_handler(CommandHandler("trade", execute_trade_command)
+    dp.add_handler(CommandHandler("shutdown", shutdown)
     
     updater.start_polling()
     updater.idle()

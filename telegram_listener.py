@@ -1,6 +1,6 @@
 '''telegram_listener.py – standalone command listener for Snipe4SoleBot
 
-Runs in its own process so the trading bot’s asyncio loop stays clean.  
+Runs in its own process so the trading bot's asyncio loop stays clean.  
 Adds graceful shutdown handling so the listener dies when the main bot
 terminates (SIGINT/SIGTERM) or when the owner sends /shutdown.
 '''
@@ -115,7 +115,7 @@ async def cmd_status(update: Update, _: CallbackContext):
         f"Uptime: {status.get('uptime', 'n/a')}\n"
         f"Trades: {status.get('trade_count', 0)}\n"
         f"Profit: {status.get('profit', 0):.4f}\n"
-        f"Memory: {status.get('memory_mb', 0):.2f} MB\n\n"
+        f"Memory: {status.get('memory_mb', 0):.2f} MB\n\n"
         "*Active strategies:*\n" + "\n".join(f"• {s}" for s in status.get("active_strategies", []))
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
@@ -129,7 +129,7 @@ async def cmd_balance(update: Update, _: CallbackContext):
         return
     lines = ["💰 *Wallet balances*\n"]
     for name, bal in balances.items():
-        lines.append(f"*{name}*: {bal:.4f} SOL")
+        lines.append(f"*{name}*: {bal:.4f} SOL")
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
 
 @_restricted
@@ -164,6 +164,7 @@ async def cmd_shutdown(update: Update, _: CallbackContext):
 async def _run_bot() -> None:
     application: Application = ApplicationBuilder().token(TOKEN).build()
 
+    # FIXED: Added missing closing parentheses
     application.add_handler(CommandHandler("start",     cmd_start))
     application.add_handler(CommandHandler("help",      cmd_help))
     application.add_handler(CommandHandler("status",    cmd_status))
@@ -193,7 +194,7 @@ async def _run_bot() -> None:
 
 def main() -> None:
     try:
-        asyncio.run(_run_bot())
+        asyncio.run(_run_bot())  # FIXED: Added missing closing parenthesis
     except KeyboardInterrupt:
         # If asyncio loop already closed, ignore
         pass

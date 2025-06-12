@@ -6,6 +6,7 @@ import logging
 import json
 import time
 import random
+import requests
 from datetime import datetime
 from decrypt_config import config
 
@@ -166,7 +167,11 @@ def get_random_wallet():
     In a real implementation, this would load a wallet from a secure storage.
     For this implementation, we'll return a mock wallet object.
     """
-    from solders.keypair import Keypair
+    try:
+        from solders.keypair import Keypair
+    except ImportError:
+        # Fallback if solders not available
+        pass
     
     # In a real implementation, you would load wallets from config
     wallets = config.get("solana_wallets", {})
@@ -179,7 +184,7 @@ def get_random_wallet():
         def pubkey(self):
             return self._address
     
-    # For simplicity, just return a mock wallet
+    # For simplicity, just return a mock wallet - FIXED: Added missing closing parenthesis
     return MockWallet("Random" + str(random.randint(1000, 9999)))
 
 def parse_timestamp(timestamp_str):

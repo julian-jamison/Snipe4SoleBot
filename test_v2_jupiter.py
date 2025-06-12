@@ -5,7 +5,7 @@ import asyncio
 from solana_real_trader import SolanaRealTrader
 from solana.rpc.api import Client
 
-async def test_v2_jupiter_trade():
+async def test_v2_jupiter_trade()):
     """Test v2 Jupiter trading method"""
     
     print("🔴 Testing v2 Jupiter trade...")

@@ -65,12 +65,12 @@ def test_trader_with_working_rpc():
         SOL_MINT = "So11111111111111111111111111111111111111112"
         USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
         
-        quote = trader.get_jupiter_quote(SOL_MINT, USDC_MINT, int(0.001 * 1e9))
+        quote = trader.get_jupiter_quote(SOL_MINT, USDC_MINT, int(0.001 * 1e9)
         print(f"✅ Jupiter quote: {quote}")
         
         if quote and not quote.get('error'):
-            in_amount = int(quote.get('inAmount', 0))
-            out_amount = int(quote.get('outAmount', 0))
+            in_amount = int(quote.get('inAmount', 0)
+            out_amount = int(quote.get('outAmount', 0)
             
             if in_amount > 0 and out_amount > 0:
                 print(f"💹 Quote: {in_amount / 1e9:.6f} SOL → {out_amount / 1e6:.6f} USDC")

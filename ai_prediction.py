@@ -21,7 +21,7 @@ def calculate_rsi(prices, period=14):
     if avg_loss == 0:
         return 100  # RSI max
     rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    return 100 - (100 / (1 + rs)
 
 
 def calculate_macd(prices, short_window=12, long_window=26, signal_window=9):

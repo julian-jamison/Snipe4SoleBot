@@ -55,7 +55,7 @@ def add_position(token_address, quantity, price, strategy="dex"):
         new_quantity = old_quantity + quantity
         
         if new_quantity > 0:
-            new_price = ((old_quantity * old_price) + (quantity * price)) / new_quantity
+            new_price = (old_quantity * old_price) + (quantity * price) / new_quantity
         else:
             new_price = price
             

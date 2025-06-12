@@ -9,8 +9,8 @@ async def test_jupiter_transaction():
     private_key_hex = "295a3d0a5562e8772964abfc5fe5c36be0ca7e78ceed3a238dd249526ff5fd4840f31de17a19f5ba48a00b32a5317ed23d6c82ff211e4ceb8a5f22736c1dbe65"
     
     from solders.keypair import Keypair
-    keypair = Keypair.from_bytes(bytes.fromhex(private_key_hex))
-    wallet_pubkey = str(keypair.pubkey())
+    keypair = Keypair.from_bytes(bytes.fromhex(private_key_hex)
+    wallet_pubkey = str(keypair.pubkey()
     
     print(f'Wallet: {wallet_pubkey}')
     
@@ -19,7 +19,7 @@ async def test_jupiter_transaction():
     quote_params = {
         'inputMint': 'So11111111111111111111111111111111111111112',
         'outputMint': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        'amount': str(int(0.001 * 1e9)),
+        'amount': str(int(0.001 * 1e9),
         'slippageBps': '100'
     }
     
@@ -98,4 +98,4 @@ async def test_jupiter_transaction():
     return False
 
 if __name__ == "__main__":
-    asyncio.run(test_jupiter_transaction())
+    asyncio.run(test_jupiter_transaction()

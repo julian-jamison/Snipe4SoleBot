@@ -1,0 +1,38 @@
+{
+  "solana_wallets": {
+    "wallet_1": "8kTfti4dQvBTntbUAW6dPV59dgJ9HggB3Lrieu6XQRT2",
+    "wallet_2": "GftQC1mdY57HLdXYoj9zRv3Tjh6yRimbHmKRjXbLw98E",
+    "wallet_3": "C1esW6EaKALihWAXunE2idFRj2iZ7yswoNBS1PycbrGC",
+    "cold_wallet": "D2CoD3E6UkbErdUtQXj7BbK8VkPiEF3KqGUq6cf9PRWv",
+    "private_key_hex": "295a3d0a5562e8772964abfc5fe5c36be0ca7e78ceed3a238dd249526ff5fd4840f31de17a19f5ba48a00b32a5317ed23d6c82ff211e4ceb8a5f22736c1dbe65",
+    "public_key": "5NY7AetzYAiNFu78mzcUcVKWWmSC2XFADyhUZFBQgVrL"
+  },
+  "telegram": {
+    "bot_token": "7734018739:AAFQ2P5E-2cWlLGrV9GR_d-m_pEjnTlKTo0",
+    "chat_id": "6531394402"
+  },
+  "trade_settings": {
+    "min_liquidity": 1000,
+    "max_gas_fee": 0.002,
+    "profit_target": 10,
+    "stop_loss": -5,
+    "trade_cooldown": 30,
+    "dynamic_risk_management": {
+      "enabled": true,
+      "volatility_threshold": 0.03,
+      "max_stop_loss": -10,
+      "min_stop_loss": -2,
+      "max_profit_target": 15,
+      "min_profit_target": 5
+    },
+    "allowed_tokens": [
+      "So11111111111111111111111111111111111111112",
+      "Es9vMFrzaCERiE2dZVjW6M9T3cxLVRshzF5sgJnpPzM9"
+    ]
+  },
+  "api_keys": {
+    "live_mode": true,
+    "birdeye_api_key": "5e7294e4808a42e79ed4392a4510fd72",
+    "solana_rpc_url": "https://rpc.mainnet.helius.xyz/?api-key=cc8ff825-27de-4804-9f6e-5bbb5a40fc3a"
+  }
+}

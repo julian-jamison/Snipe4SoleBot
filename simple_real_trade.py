@@ -17,7 +17,7 @@ async def execute_direct_jupiter_trade():
     
     from solders.keypair import Keypair
     keypair = Keypair.from_bytes(private_key_bytes)
-    wallet_pubkey = str(keypair.pubkey())
+    wallet_pubkey = str(keypair.pubkey()
     
     print(f'Wallet: {wallet_pubkey}')
     
@@ -54,7 +54,7 @@ async def execute_direct_jupiter_trade():
     quote_params = {
         'inputMint': 'So11111111111111111111111111111111111111112',  # SOL
         'outputMint': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
-        'amount': str(int(0.001 * 1e9)),  # 0.001 SOL in lamports
+        'amount': str(int(0.001 * 1e9),  # 0.001 SOL in lamports
         'slippageBps': '100'  # 1%
     }
     
@@ -173,7 +173,7 @@ print('=' * 60)
 
 confirm = input('Execute REAL \$0.17 trade? (yes/no): ')
 if confirm.lower() == 'yes':
-    success = asyncio.run(execute_direct_jupiter_trade())
+    success = asyncio.run(execute_direct_jupiter_trade()
     if success:
         print()
         print('='*60)

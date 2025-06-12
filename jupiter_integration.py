@@ -30,7 +30,7 @@ class JupiterSwapper:
     def __init__(self, rpc_client: Client, keypair: Keypair):
         self.client = rpc_client
         self.keypair = keypair
-        self.wallet_address = str(keypair.pubkey())
+        self.wallet_address = str(keypair.pubkey()
         
     async def get_quote(
         self,
@@ -146,7 +146,7 @@ class JupiterSwapper:
         """Send transaction to Solana network"""
         try:
             # Serialize transaction
-            serialized_tx = base64.b64encode(transaction.serialize()).decode('ascii')
+            serialized_tx = base64.b64encode(transaction.serialize().decode('ascii')
             
             # Send using RPC client
             response = self.client.send_transaction(
@@ -221,7 +221,7 @@ class JupiterSwapper:
             signature = await self.execute_swap(quote)
             
             if signature:
-                expected_tokens = int(quote.get("outAmount", 0))
+                expected_tokens = int(quote.get("outAmount", 0)
                 logger.info(f"✅ Buy successful! Expected tokens: {expected_tokens}")
                 
             return signature
@@ -260,7 +260,7 @@ class JupiterSwapper:
             signature = await self.execute_swap(quote)
             
             if signature:
-                expected_sol = int(quote.get("outAmount", 0)) / 1e9
+                expected_sol = int(quote.get("outAmount", 0) / 1e9
                 logger.info(f"✅ Sell successful! Expected SOL: {expected_sol:.4f}")
                 
             return signature
@@ -324,7 +324,7 @@ async def test_jupiter_integration(rpc_url: str, keypair: Keypair):
     quote = await swapper.get_quote(SOL_MINT, USDC_MINT, int(0.001 * 1e9), 100)
     
     if quote:
-        expected_usdc = int(quote.get("outAmount", 0)) / 1e6  # USDC has 6 decimals
+        expected_usdc = int(quote.get("outAmount", 0) / 1e6  # USDC has 6 decimals
         logger.info(f"✅ Test quote successful: 0.001 SOL → {expected_usdc:.6f} USDC")
         return True
     else:

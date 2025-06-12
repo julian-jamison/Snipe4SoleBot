@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Import statements
 import asyncio
 import json
@@ -11,7 +10,7 @@ import base64
 from solana.rpc.core import RPCException
 from tenacity import retry, stop_after_attempt, wait_exponential
 from config_manager import load_decrypted_config
-from telegram_notifications import send_telegram_message
+from telegram_notifications import send_telegram_message_async
 
 # Initialize logger first
 logging.basicConfig(level=logging.INFO)
@@ -58,7 +57,7 @@ DEX_PROGRAMS = {
     "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBymtzvT": "Meteora"
 }
 
-LOGGER.info(f"Monitoring {len(DEX_PROGRAMS)} DEX programs: {list(DEX_PROGRAMS.keys())}")
+LOGGER.info(f"Monitoring {len(DEX_PROGRAMS)} DEX programs: {list(DEX_PROGRAMS.keys()}")
 
 SOLANA_NATIVE_MINT = "So11111111111111111111111111111111111111112"
 USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
@@ -109,17 +108,17 @@ class MempoolMonitor:
             result = response.json()
             
             if result.get("result") == "ok":
-                LOGGER.info("✅ Helius RPC connection test successful: %s", result.get("result"))
+                LOGGER.info("✅ Helius RPC connection test successful: %s", result.get("result")
                 return True
             else:
                 LOGGER.error("❌ Helius RPC health check failed: %s", result)
                 return False
                 
         except Exception as e:
-            LOGGER.error("❌ Failed to test Helius connection: %s", str(e))
+            LOGGER.error("❌ Failed to test Helius connection: %s", str(e)
             return False
     
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     async def connect_websocket(self):
         """Connect to Helius WebSocket with retry logic."""
         try:
@@ -239,14 +238,14 @@ class MempoolMonitor:
             info = parsed_data.get("info", {})
             
             # Extract token mints
-            token_a = info.get("mintA", info.get("tokenMintA"))
-            token_b = info.get("mintB", info.get("tokenMintB"))
+            token_a = info.get("mintA", info.get("tokenMintA")
+            token_b = info.get("mintB", info.get("tokenMintB")
             
             if not token_a or not token_b:
                 return None
             
             # Extract pool address if available
-            pool_address = info.get("poolAddress", info.get("account", signature))
+            pool_address = info.get("poolAddress", info.get("account", signature)
             
             return {
                 "pool_address": pool_address,
@@ -295,7 +294,7 @@ class MempoolMonitor:
             LOGGER.error(f"Error getting pool info via HTTP: {str(e)}")
             return None
     
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10)
     async def _get_recent_blockhash(self):
         """Get recent blockhash with retry."""
         headers = {"Content-Type": "application/json"}
@@ -348,8 +347,7 @@ def check_new_pools():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     
-    return loop.run_until_complete(check_new_pools_async())
-=======
+    return loop.run_until_complete(check_new_pools_async()
 import time
 import requests
 
@@ -381,4 +379,3 @@ if __name__ == "__main__":
         if pool:
             print(f"🔥 Liquidity Pool Found: {pool}")
         time.sleep(5)  # Check mempool every 5 seconds
->>>>>>> fb6e5d71 (Add files via upload)

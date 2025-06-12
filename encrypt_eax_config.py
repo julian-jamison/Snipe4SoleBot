@@ -137,9 +137,9 @@ def decrypt_config(encrypted_file, output_file=None, password=None):
         return None
     
     # Decode salt, nonce, and ciphertext
-    salt = base64.b64decode(encrypted_data.get("salt"))
-    nonce = base64.b64decode(encrypted_data.get("nonce"))
-    ciphertext = base64.b64decode(encrypted_data.get("ciphertext"))
+        salt = base64.b64decode(encrypted_data.get("salt"))
+        nonce = base64.b64decode(encrypted_data.get("nonce"))
+        ciphertext = base64.b64decode(encrypted_data.get("ciphertext"))
     
     # Get password if not provided
     if password is None:

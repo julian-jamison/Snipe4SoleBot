@@ -6,7 +6,7 @@ import time
 import logging
 import argparse
 from solana_real_trader import get_real_trader
-from telegram_notifications import send_telegram_message
+from telegram_notifications import send_telegram_message_async
 from decrypt_config import config
 
 # Configure logging
@@ -57,7 +57,7 @@ def test_balance():
             logger.warning(f"Error getting USDT balance (this is okay): {e}")
         
         # Send a notification with the balances
-        send_telegram_message(
+       await send_telegram_message_async(
             f"💰 Wallet Balance Check:\n"
             f"Wallet: {wallet_address[:8]}...{wallet_address[-4:]}\n"
             f"SOL: {sol_balance:.4f}\n"
@@ -105,7 +105,7 @@ def test_new_pools():
     for i, pool in enumerate(pools):
         token_mint = pool.get("baseMint", "")
         dex = pool.get("dex", "Unknown")
-        liquidity = float(pool.get("liquidity", 0))
+        liquidity = float(pool.get("liquidity", 0)
         
         # Get token info
         token_info = trader.get_token_metadata(token_mint)
@@ -149,7 +149,7 @@ def test_buy(token_mint=None, amount=0.01):
         logger.info(f"Tokens received: {result.get('token_amount'):.8f} {symbol}")
         
         # Send notification
-        send_telegram_message(
+       await send_telegram_message_async(
             f"✅ Test Buy Successful\n"
             f"Token: {symbol}\n"
             f"Amount: {result.get('token_amount'):.8f} {symbol}\n"
@@ -195,7 +195,7 @@ def test_sell(token_mint=None):
         logger.info(f"SOL received: {result.get('sol_received'):.8f} SOL")
         
         # Send notification
-        send_telegram_message(
+       await send_telegram_message_async(
             f"✅ Test Sell Successful\n"
             f"Token: {symbol}\n"
             f"Amount: {result.get('token_amount'):.8f} {symbol}\n"
@@ -249,7 +249,7 @@ def test_withdraw(amount=None, to_address=None):
         logger.info(f"Transaction ID: {result.get('txid')}")
         
         # Send notification
-        send_telegram_message(
+       await send_telegram_message_async(
             f"✅ Test Withdrawal Successful\n"
             f"Amount: {amount:.8f} SOL\n"
             f"Destination: {to_address}"
@@ -301,7 +301,7 @@ def test_full_cycle(token_mint=None, buy_amount=0.01):
         current_price = trader.get_token_price(token_mint)
         
         # Calculate profit percentage
-        profit_percent = ((current_price - initial_price) / initial_price) * 100
+        profit_percent = (current_price - initial_price) / initial_price) * 100
         
         logger.info(f"Current price: ${current_price:.8f}, Profit: {profit_percent:.2f}%")
         
@@ -328,7 +328,7 @@ def test_full_cycle(token_mint=None, buy_amount=0.01):
     logger.info(f"Profit/Loss: {profit_sol:.8f} SOL ({profit_percent:.2f}%)")
     
     # Send notification
-    send_telegram_message(
+   await send_telegram_message_async(
         f"✅ Full Test Cycle Completed\n"
         f"Token: {symbol}\n"
         f"SOL spent: {buy_amount:.8f}\n"
@@ -441,7 +441,7 @@ def main():
         
     except Exception as e:
         logger.error(f"Error running tests: {e}", exc_info=True)
-        send_telegram_message(f"❌ Error in real trading tests: {str(e)}")
+       await send_telegram_message_async(f"❌ Error in real trading tests: {str(e)}")
 
 if __name__ == "__main__":
     main()

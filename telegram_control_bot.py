@@ -161,10 +161,10 @@ async def main():
     
     # Add command handlers
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("stop", stop_command))
+    app.add_handler(CommandHandler("stop", stop_command)
     app.add_handler(CommandHandler("restart", restart_command))
-    app.add_handler(CommandHandler("status", status_command))
-    app.add_handler(CommandHandler("logs", logs_command))
+    app.add_handler(CommandHandler("status", status_command)
+    app.add_handler(CommandHandler("logs", logs_command)
     
     print("🎮 Telegram Control Bot started. Use commands to control Snipe4SoleBot.")
     
@@ -172,4 +172,4 @@ async def main():
     await app.run_polling()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main()

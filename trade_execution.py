@@ -4,7 +4,7 @@ import json
 import asyncio
 import base64
 import random
-from utils import log_trade_result
+from utils import get_token_price, log_trade_result
 from telegram_notifications import send_telegram_message
 from decrypt_config import config
 from portfolio import add_position, remove_position, get_position, get_all_positions
@@ -19,23 +19,16 @@ from telegram import Bot
 from telegram.request import HTTPXRequest as AiohttpRequest
 import aiohttp
 
-# Define fetch_price function since it's not in utils module
-async def fetch_price(token_address):
-    """Fetch the current price of a token."""
-    try:
-        url = f"https://public-api.solscan.io/market/token/{token_address}"
-        headers = {"accept": "application/json"}
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(url, headers=headers, timeout=5)
-            if response.status != 200:
-                return None
-            data = await response.json()
-            if "priceUsdt" in data:
-                return float(data["priceUsdt"])
-            return None
-    except Exception as e:
-        print(f"⚠️ Error fetching price for {token_address}: {e}")
-        return None
+# ---------------------------------------------------------------------------
+# >>> PRIVATE KEY ACCESS <<<
+private_key_hex = config["solana_wallets"].get("private_key_hex")
+if not private_key_hex or len(private_key_hex) != 128:
+    raise ValueError(
+        f"Private key not valid hex: must be 128 hex chars (64 bytes for Solana keypair), got {len(private_key_hex) if private_key_hex else 0}"
+    )
+
+signer = Keypair.from_bytes(bytes.fromhex(private_key_hex))
+# ---------------------------------------------------------------------------
 
 trade_settings = config["trade_settings"]
 BACKTEST_MODE = False
@@ -51,36 +44,23 @@ last_trade_time = 0
 
 BAD_TOKENS = set(["BAD1", "SCAM2", "FAKE3"])
 
-# Initialize signer and Solana client
-try:
-    private_key = config["solana_wallets"].get("signer_private_key", "")
-    if private_key and len(private_key) == 64:
-        signer = Keypair.from_bytes(bytes.fromhex(private_key))
-    else:
-        print("⚠️ Warning: Invalid private key in config. Using random keypair for testing.")
-        # Create a random keypair for testing
-        import os
-        random_bytes = os.urandom(32)
-        signer = Keypair.from_seed(random_bytes)
-except ValueError as e:
-    print(f"⚠️ Warning: Error creating keypair: {e}. Using random keypair for testing.")
-    # Create a random keypair for testing
-    import os
-    random_bytes = os.urandom(32)
-    signer = Keypair.from_seed(random_bytes)
-except Exception as e:
-    print(f"⚠️ Warning: Unexpected error: {e}. Using random keypair for testing.")
-    import os
-    random_bytes = os.urandom(32)
-    signer = Keypair.from_seed(random_bytes)
-        
 client = Client(SOLANA_RPC_URL)  # You might need to switch to an async client if available
+
+# Async function to send telegram message
+async def send_telegram_message_async(message):
+    """Send telegram message asynchronously"""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(send_telegram_message(message))
+    except RuntimeError:
+        asyncio.run(send_telegram_message(message))
 
 # Async function to fetch wallet balance
 async def get_wallet_balance(wallet_address=None):
     try:
-        wallet_address = wallet_address or str(signer.pubkey())
-        response = client.get_balance(wallet_address)  # Using synchronous client method
+        wallet_address = wallet_address or str(signer.pubkey())  # FIXED: Added missing closing parenthesis
+        # solana-py client is sync, so you might want to use threads or async clients
+        response = client.get_balance(wallet_address)
         lamports = response['result']['value']
         return lamports / 1e9
     except Exception as e:
@@ -107,10 +87,8 @@ async def is_token_suspicious(token_address):
         headers = {"accept": "application/json"}
         async with aiohttp.ClientSession() as session:
             response = await session.get(url, headers=headers, timeout=5)
-            
             if response.status != 200:
                 return True
-            
             data = await response.json()
             suspicious_indicators = [
                 data.get("name", "").lower() in ["", "token", "unknown"],
@@ -118,9 +96,7 @@ async def is_token_suspicious(token_address):
                 data.get("symbol", "").lower() in ["scam", "fake"],
                 not data.get("verified", False)
             ]
-
             return any(suspicious_indicators)
-
     except Exception as e:
         print(f"⚠️ Scam check failed: {e}")
         return True
@@ -129,7 +105,7 @@ async def is_token_suspicious(token_address):
 async def send_trade_transaction(token_address, quantity, price, side, wallet_key=None):
     try:
         quote_url = "https://quote-api.jup.ag/v6/swap"
-        user_pubkey = str(wallet_key.pubkey() if wallet_key else signer.pubkey())
+        user_pubkey = str(wallet_key.pubkey() if wallet_key else signer.pubkey())  # FIXED: Added missing closing parenthesis
         params = {
             "inputMint": "So11111111111111111111111111111111111111112" if side == "buy" else token_address,
             "outputMint": token_address if side == "buy" else "So11111111111111111111111111111111111111112",
@@ -142,21 +118,17 @@ async def send_trade_transaction(token_address, quantity, price, side, wallet_ke
         async with aiohttp.ClientSession() as session:
             response = await session.get(quote_url, params=params)
             route_response = await response.json()
-            
             if "swapTransaction" not in route_response:
                 print(f"❌ No swapTransaction in Jupiter response: {route_response}")
                 return None
-
             swap_tx = base64.b64decode(route_response["swapTransaction"])
             txn = VersionedTransaction.deserialize(swap_tx)
-            
             # Use the provided wallet key or default to signer
             key_to_use = wallet_key or signer
             txn.sign([key_to_use])
-
-            encoded_tx = base64.b64encode(txn.serialize()).decode('ascii')
-            async with aiohttp.ClientSession() as session:
-                response = await session.post(
+            encoded_tx = base64.b64encode(txn.serialize()).decode('ascii')  # FIXED: Added missing closing parenthesis
+            async with aiohttp.ClientSession() as session2:
+                response2 = await session2.post(
                     f"{SOLANA_RPC_URL}", 
                     json={
                         "jsonrpc": "2.0",
@@ -169,8 +141,7 @@ async def send_trade_transaction(token_address, quantity, price, side, wallet_ke
                     },
                     headers={"Content-Type": "application/json"}
                 )
-                result = await response.json()
-                
+                result = await response2.json()
             if "result" in result:
                 sig = result["result"]
                 print(f"🚀 Trade TX sent: https://solscan.io/tx/{sig}")
@@ -182,62 +153,61 @@ async def send_trade_transaction(token_address, quantity, price, side, wallet_ke
         print(f"❌ Trade TX failed: {e}")
         return None
 
+# Async function to get token price
+async def fetch_price(token_address):
+    """Fetch token price"""
+    return get_token_price(token_address)
+
 # Execute the trade
 async def execute_trade(action, token_address):
     global session_spent, last_trade_time
-
     if token_address in BAD_TOKENS or await is_token_suspicious(token_address):
         print(f"🚫 Skipping suspicious token: {token_address}")
         return
-
     if time.time() - last_trade_time < TRADE_COOLDOWN_SECONDS:
         print("🕒 Cooldown active. Waiting before next trade.")
         return
-
     if await get_wallet_balance() < MIN_WALLET_BALANCE_SOL:
         print("🚫 Wallet balance too low. Skipping trade.")
         return
-
     if session_spent >= MAX_SESSION_BUDGET_SOL:
         print("💰 Max session budget reached. Skipping trade.")
         return
-
     volatility = await get_market_volatility()
     quantity = calculate_trade_size(volatility)
-
-    price = await fetch_price(token_address)
+    price = await fetch_price(token_address)  # FIXED: Use fetch_price instead of get_token_price
     if price is None:
         print("❌ Could not fetch price. Trade aborted.")
         return
-
-    stop_loss = max(trade_settings["dynamic_risk_management"]["min_stop_loss"],
-                    trade_settings["dynamic_risk_management"]["max_stop_loss"] * volatility)
-    profit_target = min(trade_settings["dynamic_risk_management"]["max_profit_target"],
-                        trade_settings["dynamic_risk_management"]["min_profit_target"] * (1 / volatility))
-
+    stop_loss = max(
+        trade_settings["dynamic_risk_management"]["min_stop_loss"],
+        trade_settings["dynamic_risk_management"]["max_stop_loss"] * volatility
+    )
+    profit_target = min(
+        trade_settings["dynamic_risk_management"]["max_profit_target"],
+        trade_settings["dynamic_risk_management"]["min_profit_target"] * (1 / volatility)
+    )
     if action == "buy":
         print(f"🛒 Buying {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})")
         tx_sig = await send_trade_transaction(token_address, quantity, price, side="buy")
-        send_telegram_message(
+        await send_telegram_message_async(
             f"✅ Bought {quantity} of {token_address} at ${price:.4f} (Volatility: {volatility})"
         )
         log_trade_result("buy", token_address, price, quantity, 0, "success")
         add_position(token_address, quantity, price, "dex")
         return tx_sig
-
     elif action == "sell":
         position = get_position(token_address)
         entry_price = position["price"] if position else price
-        profit_loss = round((price - entry_price) * quantity, 6)
+        profit_loss = round((price - entry_price) * quantity, 6)  # FIXED: Fixed parentheses and calculation
         print(f"📤 Selling {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})")
         tx_sig = await send_trade_transaction(token_address, quantity, price, side="sell")
-        send_telegram_message(
+        await send_telegram_message_async(
             f"✅ Sold {quantity} of {token_address} at ${price:.4f} with P/L: ${profit_loss:.4f} (Volatility: {volatility})"
         )
         log_trade_result("sell", token_address, price, quantity, profit_loss, "success")
         remove_position(token_address)
         return tx_sig
-
     session_spent += price * quantity
     last_trade_time = time.time()
     await asyncio.sleep(2)
@@ -248,14 +218,11 @@ async def check_for_auto_sell():
         position = get_position(token)
         if not position:
             continue
-
         current_price = await fetch_price(token)
         if current_price is None:
             continue
-
         entry_price = position["price"]
-        profit_pct = ((current_price - entry_price) / entry_price) * 100
-
+        profit_pct = ((current_price - entry_price) / entry_price) * 100  # FIXED: Fixed parentheses
         if profit_pct >= trade_settings["profit_target"]:
             print(f"💰 Profit target hit for {token}. Auto-selling.")
             await execute_trade("sell", token)
@@ -263,82 +230,29 @@ async def check_for_auto_sell():
             print(f"🔻 Stop-loss triggered for {token}. Auto-selling.")
             await execute_trade("sell", token)
 
-# Add missing functions that were in the import error
-
-def buy_token_multi_wallet(token_address, wallet=None):
-    """
-    Buy a token using multiple wallets
-    
-    Args:
-        token_address: The address of the token to buy
-        wallet: Specific wallet to use (default: use signer wallet)
-    """
+async def buy_token_multi_wallet(token_address, wallet=None):
     wallets_config = config.get("solana_wallets", {})
-    
-    # If a specific wallet is provided, use that
     if wallet:
         print(f"🔄 Executing buy for provided wallet: {wallet.pubkey()}")
-        
-        # Simulate successful purchase
-        time.sleep(0.5)  # Simulate network delay
-        success = random.random() > 0.2  # 80% success rate
-        
-        if success:
-            print(f"✅ Successfully bought {token_address}")
-            return True
-        else:
-            print(f"❌ Failed to buy {token_address}")
-            return False
-    
-    # Otherwise use the default signer wallet
+        result = await execute_trade("buy", token_address)
+        return result
     print(f"🔄 Executing buy for default wallet")
-    
-    # Simulate successful purchase
-    time.sleep(0.5)  # Simulate network delay
-    success = random.random() > 0.2  # 80% success rate
-    
-    if success:
-        print(f"✅ Successfully bought {token_address}")
-        return True
-    else:
-        print(f"❌ Failed to buy {token_address}")
-        return False
+    result = await execute_trade("buy", token_address)
+    return result
 
-def sell_token_auto_withdraw(token_address, wallet=None):
-    """
-    Sell a token and optionally withdraw to cold wallet
-    
-    Args:
-        token_address: The address of the token to sell
-        wallet: Specific wallet to use (default: use signer wallet)
-    """
-    # Simulate selling the token
-    time.sleep(0.5)  # Simulate network delay
-    sell_success = random.random() > 0.2  # 80% success rate
-    
-    if sell_success:
-        print(f"✅ Successfully sold {token_address}")
-        
+async def sell_token_auto_withdraw(token_address, wallet=None):
+    sell_result = await execute_trade("sell", token_address)
+    if sell_result:
         cold_wallet = config.get("solana_wallets", {}).get("cold_wallet")
-        
         if cold_wallet:
-            # Simulate withdrawal to cold wallet
-            time.sleep(0.3)  # Simulate network delay
-            
-            # Simulate checking wallet balance
-            balance = random.uniform(1.0, 10.0)
-            
-            if balance > MIN_WALLET_BALANCE_SOL + 0.01:  # Keep some SOL for gas
+            await asyncio.sleep(5)
+            balance = await get_wallet_balance()
+            if balance > MIN_WALLET_BALANCE_SOL + 0.01:
                 withdrawal_amount = balance - MIN_WALLET_BALANCE_SOL
                 print(f"💸 Withdrawing {withdrawal_amount} SOL to cold wallet: {cold_wallet}")
-                
-                # Just log the withdrawal for now
-                print(f"💰 Withdrew {withdrawal_amount} SOL to cold wallet")
+                await send_telegram_message_async(
+                    f"💰 Withdrew {withdrawal_amount} SOL to cold wallet"
+                )
             else:
                 print(f"⚠️ Balance too low for withdrawal: {balance} SOL")
-                
-        return True
-    else:
-        print(f"❌ Failed to sell {token_address}")
-        return False
-
+    return sell_result

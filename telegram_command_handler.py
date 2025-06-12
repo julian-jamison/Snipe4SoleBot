@@ -136,13 +136,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("status", status_command))
-    app.add_handler(CommandHandler("balance", balance_command))
-    app.add_handler(CommandHandler("positions", positions_command))
-    app.add_handler(CommandHandler("stop", stop_command))
-    app.add_handler(CommandHandler("restart", restart_command))
-    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("start", start_command)
+    app.add_handler(CommandHandler("status", status_command)
+    app.add_handler(CommandHandler("balance", balance_command)
+    app.add_handler(CommandHandler("positions", positions_command)
+    app.add_handler(CommandHandler("stop", stop_command)
+    app.add_handler(CommandHandler("restart", restart_command)
+    app.add_handler(CommandHandler("help", help_command)
     logging.info("Starting Telegram command listener...")
     await app.initialize()
     await app.start()
@@ -151,4 +151,4 @@ async def main():
         await asyncio.sleep(60)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main()
